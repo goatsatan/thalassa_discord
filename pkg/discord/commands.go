@@ -1,10 +1,14 @@
 package discord
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +20,31 @@ import (
 	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
+)
+
+const (
+	AQUA                = 1752220
+	GREEN               = 3066993
+	BLUE                = 3447003
+	PURPLE              = 10181046
+	GOLD                = 15844367
+	ORANGE              = 15105570
+	RED                 = 15158332
+	GREY                = 9807270
+	DARKER_GREY         = 8359053
+	NAVY                = 3426654
+	DARK_AQUA           = 1146986
+	DARK_GREEN          = 2067276
+	DARK_BLUE           = 2123412
+	DARK_PURPLE         = 7419530
+	DARK_GOLD           = 12745742
+	DARK_ORANGE         = 11027200
+	DARK_RED            = 10038562
+	DARK_GREY           = 9936031
+	LIGHT_GREY          = 12370112
+	DARK_NAVY           = 2899536
+	LUMINOUS_VIVID_PINK = 16580705
+	DARK_VIVID_PINK     = 12320855
 )
 
 type Command struct {
@@ -49,12 +78,67 @@ func (s *shardInstance) registerBuiltInCommands() {
 			HelpText: "This skips all songs in the queue as well as the current playing song.",
 			Execute:  playList,
 		})
+	s.registerCommand(
+		Command{
+			Name:     "randomdog",
+			HelpText: "This gets a random picture of a dog.",
+			Execute:  getRandomDogPicture,
+		})
+	s.registerCommand(
+		Command{
+			Name:     "randomcat",
+			HelpText: "This gets a random picture of a cat.",
+			Execute:  getRandomCatPicture,
+		})
+	s.registerCommand(
+		Command{
+			Name:     "randomfox",
+			HelpText: "This gets a random picture of a fox.",
+			Execute:  getRandomFoxPicture,
+		})
+	s.registerCommand(
+		Command{
+			Name:     "define",
+			HelpText: "This gets the definition for a word.",
+			Execute:  getDictionary,
+		})
+	s.registerCommand(
+		Command{
+			Name:     "joke",
+			HelpText: "This gets a random joke. If you're easily offended use safejoke instead.",
+			Execute:  getRandomJoke,
+		})
+	s.registerCommand(
+		Command{
+			Name:     "safejoke",
+			HelpText: "This gets a random joke.",
+			Execute:  getRandomSafeJoke,
+		})
+	s.registerCommand(
+		Command{
+			Name:     "iplookup",
+			HelpText: "This gets IP address information",
+			Execute:  ipLookup,
+		})
+	s.registerCommand(
+		Command{
+			Name:     "udefine",
+			HelpText: "Urban dictionary lookup.",
+			Execute:  urbanDictionary,
+		})
 }
 
 func (s *shardInstance) registerCommand(command Command) {
 	s.Lock()
 	s.Commands[strings.ToLower(command.Name)] = &command
 	s.Unlock()
+}
+
+func sendErrorEmbed(instance *ServerInstance, errorMessage, errorDescription, channelID string) {
+	embedmsg := NewEmbedInfer(instance.Session.State.User.Username, RED).
+		AddField(errorMessage, errorDescription, false).
+		MessageEmbed
+	SendEmbedMessage(instance, embedmsg, channelID, errorMessage)
 }
 
 func (s *shardInstance) parseMessageForCommand(message *discordgo.Message, instance *ServerInstance) {
@@ -433,5 +517,430 @@ songQueue:
 				return
 			}
 		}
+	}
+}
+
+func getRandomDogPicture(instance *ServerInstance, message *discordgo.Message, args []string) {
+	type dogJSONResponse struct {
+		Message string `json:"message"`
+		Status  string `json:"status"`
+	}
+	resp, err := instance.httpClient.Get("https://dog.ceo/api/breeds/image/random")
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to get random dog image.")
+		sendErrorEmbed(instance, "Unable to get random dog image.", err.Error(), message.ChannelID)
+		return
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			instance.Log.WithError(err).Error("Unable to close response body.")
+		}
+	}()
+	jsonDecoder := json.NewDecoder(resp.Body)
+	respJSON := dogJSONResponse{}
+	err = jsonDecoder.Decode(&respJSON)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to parse JSON from dog API.")
+		sendErrorEmbed(instance, "Unable to parse JSON from dog API.", err.Error(), message.ChannelID)
+		return
+	}
+
+	dogImage := respJSON.Message
+	_, err = instance.Session.ChannelMessageSend(message.ChannelID, dogImage)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to send dog message.")
+	}
+}
+
+func getRandomFoxPicture(instance *ServerInstance, message *discordgo.Message, args []string) {
+	type foxJSONResponse struct {
+		Image string `json:"image"`
+		Link  string `json:"link"`
+	}
+
+	resp, err := instance.httpClient.Get("https://randomfox.ca/floof/")
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to get random fox image.")
+		sendErrorEmbed(instance, "Unable to get random fox image.", err.Error(), message.ChannelID)
+		return
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			instance.Log.WithError(err).Error("Unable to close response body.")
+		}
+	}()
+	jsonDecoder := json.NewDecoder(resp.Body)
+	respJSON := foxJSONResponse{}
+	err = jsonDecoder.Decode(&respJSON)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to parse JSON from fox API.")
+		sendErrorEmbed(instance, "Unable to parse JSON from fox API.", err.Error(), message.ChannelID)
+		return
+	}
+
+	dogImage := respJSON.Image
+	_, err = instance.Session.ChannelMessageSend(message.ChannelID, dogImage)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to send fox message.")
+	}
+}
+
+func getRandomCatPicture(instance *ServerInstance, message *discordgo.Message, args []string) {
+	type catJSONResponse struct {
+		File string `json:"file"`
+	}
+
+	resp, err := instance.httpClient.Get("https://aws.random.cat/meow")
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to get random cat image.")
+		sendErrorEmbed(instance, "Unable to get random cat image.", err.Error(), message.ChannelID)
+		return
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			instance.Log.WithError(err).Error("Unable to close response body.")
+		}
+	}()
+	jsonDecoder := json.NewDecoder(resp.Body)
+	respJSON := catJSONResponse{}
+	err = jsonDecoder.Decode(&respJSON)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to parse JSON from cat API.")
+		sendErrorEmbed(instance, "Unable to parse JSON from cat API.", err.Error(), message.ChannelID)
+		return
+	}
+
+	dogImage := respJSON.File
+	_, err = instance.Session.ChannelMessageSend(message.ChannelID, dogImage)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to send fox message.")
+	}
+}
+
+func getDictionary(instance *ServerInstance, message *discordgo.Message, args []string) {
+	type dictionaryResponse struct {
+		Definitions []struct {
+			Type       string      `json:"type"`
+			Definition string      `json:"definition"`
+			Example    *string     `json:"example"`
+			ImageURL   string      `json:"image_url"`
+			Emoji      interface{} `json:"emoji"`
+		} `json:"definitions"`
+		Word          string `json:"word"`
+		Pronunciation string `json:"pronunciation"`
+	}
+
+	if len(args) == 0 {
+		sendErrorEmbed(instance, "You must provide a word to lookup", "No word provided",
+			message.ChannelID)
+		return
+	}
+
+	url := fmt.Sprintf("https://owlbot.info/api/v4/dictionary/%s", args[0])
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to create GET request for dictionary.")
+		sendErrorEmbed(instance, "Unable to lookup word", err.Error(),
+			message.ChannelID)
+		return
+	}
+	req.Header.Add("Authorization", "Token 2caaf1f54e8c0d10f7a345e6af45aa8c7beeeb50")
+	resp, err := instance.httpClient.Do(req)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to lookup word.")
+		sendErrorEmbed(instance, "Unable to lookup word.", err.Error(), message.ChannelID)
+		return
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			instance.Log.WithError(err).Error("Unable to close response body.")
+		}
+	}()
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to read response body of dictionary lookup.")
+		sendErrorEmbed(instance, "Unable to parse JSON from dictionary API.", err.Error(), message.ChannelID)
+		return
+	}
+	if string(bodyBytes) == `[{"message":"No definition :("}]` {
+		sendErrorEmbed(instance, "No definition was found", fmt.Sprintf("Definition for %s was not found", args[0]), message.ChannelID)
+		return
+	}
+	jsonDecoder := json.NewDecoder(bytes.NewReader(bodyBytes))
+	respJSON := dictionaryResponse{}
+	err = jsonDecoder.Decode(&respJSON)
+	if err != nil {
+		instance.Log.WithError(err).WithField("Body", string(bodyBytes)).Error("Unable to parse JSON from dictionary API.")
+		sendErrorEmbed(instance, "Unable to parse JSON from dictionary API.", err.Error(), message.ChannelID)
+		return
+	}
+
+	if len(respJSON.Definitions) == 0 {
+		sendErrorEmbed(instance, "No definitions found", "No definitions found", message.ChannelID)
+		return
+	}
+
+	embedmsg := NewEmbedInfer(instance.Session.State.User.Username, 28804).
+		AddField("Word", args[0], false).
+		AddField("Description", respJSON.Definitions[0].Definition, false).
+		SetImage(respJSON.Definitions[0].ImageURL).
+		MessageEmbed
+	SendEmbedMessage(instance, embedmsg, message.ChannelID, "Unable to send dictionary message.")
+}
+
+func getRandomJoke(instance *ServerInstance, message *discordgo.Message, args []string) {
+	type jokeJSON struct {
+		Error    bool   `json:"error"`
+		Category string `json:"category"`
+		Type     string `json:"type"`
+		Setup    string `json:"setup"`
+		Delivery string `json:"delivery"`
+		Flags    struct {
+			Nsfw      bool `json:"nsfw"`
+			Religious bool `json:"religious"`
+			Political bool `json:"political"`
+			Racist    bool `json:"racist"`
+			Sexist    bool `json:"sexist"`
+		} `json:"flags"`
+		ID   int    `json:"id"`
+		Lang string `json:"lang"`
+	}
+
+	resp, err := instance.httpClient.Get("https://sv443.net/jokeapi/v2/joke/Any?blacklistFlags=racist&type=twopart")
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to get random joke.")
+		sendErrorEmbed(instance, "Unable to get random joke.", err.Error(), message.ChannelID)
+		return
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			instance.Log.WithError(err).Error("Unable to close response body.")
+		}
+	}()
+	jsonDecoder := json.NewDecoder(resp.Body)
+	respJSON := jokeJSON{}
+	err = jsonDecoder.Decode(&respJSON)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to parse JSON from joke API.")
+		sendErrorEmbed(instance, "Unable to parse JSON from joke API.", err.Error(), message.ChannelID)
+		return
+	}
+
+	jokeString := fmt.Sprintf("%s \n %s", respJSON.Setup, respJSON.Delivery)
+	_, err = instance.Session.ChannelMessageSend(message.ChannelID, jokeString)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to send joke message.")
+	}
+}
+
+func getRandomSafeJoke(instance *ServerInstance, message *discordgo.Message, args []string) {
+	type jokeJSON struct {
+		Error    bool   `json:"error"`
+		Category string `json:"category"`
+		Type     string `json:"type"`
+		Setup    string `json:"setup"`
+		Delivery string `json:"delivery"`
+		Flags    struct {
+			Nsfw      bool `json:"nsfw"`
+			Religious bool `json:"religious"`
+			Political bool `json:"political"`
+			Racist    bool `json:"racist"`
+			Sexist    bool `json:"sexist"`
+		} `json:"flags"`
+		ID   int    `json:"id"`
+		Lang string `json:"lang"`
+	}
+
+	resp, err := instance.httpClient.Get("https://sv443.net/jokeapi/v2/joke/Any?blacklistFlags=nsfw,religious,political,racist,sexist&type=twopart")
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to get random joke.")
+		sendErrorEmbed(instance, "Unable to get random joke.", err.Error(), message.ChannelID)
+		return
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			instance.Log.WithError(err).Error("Unable to close response body.")
+		}
+	}()
+	jsonDecoder := json.NewDecoder(resp.Body)
+	respJSON := jokeJSON{}
+	err = jsonDecoder.Decode(&respJSON)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to parse JSON from joke API.")
+		sendErrorEmbed(instance, "Unable to parse JSON from joke API.", err.Error(), message.ChannelID)
+		return
+	}
+
+	jokeString := fmt.Sprintf("%s \n %s", respJSON.Setup, respJSON.Delivery)
+	_, err = instance.Session.ChannelMessageSend(message.ChannelID, jokeString)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to send joke message.")
+	}
+}
+
+func ipLookup(instance *ServerInstance, message *discordgo.Message, args []string) {
+	type ipJSON struct {
+		IP                 string  `json:"ip"`
+		City               string  `json:"city"`
+		Region             string  `json:"region"`
+		RegionCode         string  `json:"region_code"`
+		Country            string  `json:"country"`
+		CountryCode        string  `json:"country_code"`
+		CountryCodeIso3    string  `json:"country_code_iso3"`
+		CountryCapital     string  `json:"country_capital"`
+		CountryTld         string  `json:"country_tld"`
+		CountryName        string  `json:"country_name"`
+		ContinentCode      string  `json:"continent_code"`
+		InEu               bool    `json:"in_eu"`
+		Postal             string  `json:"postal"`
+		Latitude           float64 `json:"latitude"`
+		Longitude          float64 `json:"longitude"`
+		Timezone           string  `json:"timezone"`
+		UtcOffset          string  `json:"utc_offset"`
+		CountryCallingCode string  `json:"country_calling_code"`
+		Currency           string  `json:"currency"`
+		CurrencyName       string  `json:"currency_name"`
+		Languages          string  `json:"languages"`
+		CountryArea        float64 `json:"country_area"`
+		CountryPopulation  float64 `json:"country_population"`
+		Asn                string  `json:"asn"`
+		Org                string  `json:"org"`
+	}
+
+	type errorJSON struct {
+		IP     string `json:"ip"`
+		Error  bool   `json:"error"`
+		Reason string `json:"reason"`
+	}
+
+	if len(args) == 0 {
+		sendErrorEmbed(instance, "Invalid IP/Hostname.", "You must provide an address.", message.ChannelID)
+		return
+	}
+
+	url := fmt.Sprintf("https://ipapi.co/%s/json/", args[0])
+
+	resp, err := instance.httpClient.Get(url)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to get IP information.")
+		sendErrorEmbed(instance, "Unable to get IP information.", err.Error(), message.ChannelID)
+		return
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			instance.Log.WithError(err).Error("Unable to close response body.")
+		}
+	}()
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to read response body of IP lookup.")
+		sendErrorEmbed(instance, "Unable to parse JSON from IP API.", err.Error(), message.ChannelID)
+		return
+	}
+	jsonDecoder := json.NewDecoder(bytes.NewReader(bodyBytes))
+	respJSON := ipJSON{}
+	err = jsonDecoder.Decode(&respJSON)
+	if err != nil {
+		errJSON := errorJSON{}
+		errDecoder := json.NewDecoder(bytes.NewReader(bodyBytes))
+		err = errDecoder.Decode(&errJSON)
+		if err != nil {
+			instance.Log.WithError(err).Error("Unable to parse JSON from IP lookup.")
+			sendErrorEmbed(instance, "Unable to parse JSON from IP lookup.", err.Error(), message.ChannelID)
+			return
+		}
+		sendErrorEmbed(instance, "Unable to lookup IP information", errJSON.Reason, message.ChannelID)
+	}
+
+	embedmsg := NewEmbedInfer(instance.Session.State.User.Username, 28804).
+		AddField("IP", respJSON.IP, false).
+		AddField("City", respJSON.City, true).
+		AddField("Region", respJSON.Region, true).
+		AddField("Country", respJSON.Country, true).
+		AddField("ASN", respJSON.Asn, false).
+		AddField("ISP", respJSON.Org, true).
+		MessageEmbed
+	SendEmbedMessage(instance, embedmsg, message.ChannelID, "Unable to send ip lookup message.")
+}
+
+func urbanDictionary(instance *ServerInstance, message *discordgo.Message, args []string) {
+	type dictionaryJSON struct {
+		List []struct {
+			Definition  string    `json:"definition"`
+			Permalink   string    `json:"permalink"`
+			ThumbsUp    int       `json:"thumbs_up"`
+			SoundUrls   []string  `json:"sound_urls"`
+			Author      string    `json:"author"`
+			Word        string    `json:"word"`
+			Defid       int       `json:"defid"`
+			CurrentVote string    `json:"current_vote"`
+			WrittenOn   time.Time `json:"written_on"`
+			Example     string    `json:"example"`
+			ThumbsDown  int       `json:"thumbs_down"`
+		} `json:"list"`
+	}
+
+	if len(args) == 0 {
+		sendErrorEmbed(instance, "Invalid word", "You must provide a word.", message.ChannelID)
+		return
+	}
+
+	url := fmt.Sprintf("https://mashape-community-urban-dictionary.p.rapidapi.com/define?term=%s", args[0])
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to create GET request for dictionary.")
+		sendErrorEmbed(instance, "Unable to lookup word", err.Error(),
+			message.ChannelID)
+		return
+	}
+	req.Header.Add("x-rapidapi-host", "mashape-community-urban-dictionary.p.rapidapi.com")
+	req.Header.Add("x-rapidapi-key", "cedd53e93amsh465918faf691d51p16006fjsnbf8ea937fa69")
+	resp, err := instance.httpClient.Do(req)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to lookup word.")
+		sendErrorEmbed(instance, "Unable to lookup word.", err.Error(), message.ChannelID)
+		return
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			instance.Log.WithError(err).Error("Unable to close response body.")
+		}
+	}()
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to read response body of dictionary lookup.")
+		sendErrorEmbed(instance, "Unable to parse JSON from dictionary API.", err.Error(), message.ChannelID)
+		return
+	}
+	jsonDecoder := json.NewDecoder(bytes.NewReader(bodyBytes))
+	respJSON := dictionaryJSON{}
+	err = jsonDecoder.Decode(&respJSON)
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to parse JSON from dictionary lookup.")
+		sendErrorEmbed(instance, "Unable to parse JSON from dictionary lookup.", err.Error(), message.ChannelID)
+		return
+	}
+
+	for i, definition := range respJSON.List {
+		if i >= 3 {
+			break
+		}
+		embedmsg := NewEmbedInfer(instance.Session.State.User.Username, AQUA).
+			AddField("Definition", definition.Definition, false).
+			AddField("Example", definition.Example, false).
+			MessageEmbed
+		embedmsg.Title = fmt.Sprintf("%s definition %d", definition.Word, i+1)
+		embedmsg.URL = definition.Permalink
+		SendEmbedMessage(instance, embedmsg, message.ChannelID, "Unable to send urban dictionary lookup message.")
 	}
 }

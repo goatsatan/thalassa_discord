@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"strings"
@@ -261,6 +262,7 @@ func GetPlaylistInfo(ctx context.Context, url string) ([]*PlaylistSong, error) {
 	}
 	var playlistSongs []*PlaylistSong
 	outputString := string(output[:])
+	log.Println(outputString)
 	songSplit := strings.Split(outputString, "\n")
 	for _, songString := range songSplit {
 		if songString != "" {

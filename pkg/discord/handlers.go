@@ -3,6 +3,7 @@ package discord
 import (
 	"context"
 	"database/sql"
+	"net/http"
 	"sync"
 	"time"
 
@@ -68,6 +69,9 @@ func (s *shardInstance) guildCreate(dSession *discordgo.Session, guildCreate *di
 			SkipAllCtx:          skipAllCtx,
 			SkipAllCtxCancel:    skipAllCtxCancel,
 			RWMutex:             sync.RWMutex{},
+		},
+		httpClient: &http.Client{
+			Timeout: time.Second * 30,
 		},
 	}
 	s.addServerInstance(guildCreate.ID, newInstance)
