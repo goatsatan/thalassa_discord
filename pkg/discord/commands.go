@@ -80,19 +80,19 @@ func (s *shardInstance) registerBuiltInCommands() {
 		})
 	s.registerCommand(
 		Command{
-			Name:     "randomdog",
+			Name:     "dog",
 			HelpText: "This gets a random picture of a dog.",
 			Execute:  getRandomDogPicture,
 		})
 	s.registerCommand(
 		Command{
-			Name:     "randomcat",
+			Name:     "cat",
 			HelpText: "This gets a random picture of a cat.",
 			Execute:  getRandomCatPicture,
 		})
 	s.registerCommand(
 		Command{
-			Name:     "randomfox",
+			Name:     "fox",
 			HelpText: "This gets a random picture of a fox.",
 			Execute:  getRandomFoxPicture,
 		})
