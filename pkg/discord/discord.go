@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -69,6 +70,7 @@ type ServerInstance struct {
 	Ctx           context.Context
 	CtxCancel     context.CancelFunc
 	db            *sql.DB
+	httpClient    *http.Client
 	sync.RWMutex
 }
 

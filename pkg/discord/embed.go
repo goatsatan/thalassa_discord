@@ -44,11 +44,12 @@ func NewEmbedInfer(authorName string, color int) *Embed {
 		Thumbnail:   nil,
 		Video:       nil,
 		Provider:    nil,
-		Author: &discordgo.MessageEmbedAuthor{
-			Name:    authorName,
-			IconURL: "https://uploader.xylona.net/download/cf191226-a4c2-4942-aafb-eaa93fecf8db",
-			URL:     "https://discord.thalassabot.net",
-		},
+		Author:      nil,
+		// Author: &discordgo.MessageEmbedAuthor{
+		// 	Name:    authorName,
+		// 	IconURL: "https://uploader.xylona.net/download/cf191226-a4c2-4942-aafb-eaa93fecf8db",
+		// 	URL:     "https://discord.thalassabot.net",
+		// },
 		Fields: nil,
 	}}
 }
