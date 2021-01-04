@@ -51,6 +51,19 @@ func (s *shardInstance) guildCreate(dSession *discordgo.Session, guildCreate *di
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	musicCtx, musicCtxCancel := context.WithCancel(context.Background())
 	skipAllCtx, skipAllCtxCancel := context.WithCancel(context.Background())
+
+	customCommands, err := models.CustomCommands(qm.Where("guild_id = ?", guildCreate.ID)).All(context.TODO(), s.db)
+	if err != nil {
+		s.log.WithError(err).WithField("Guild Name", guildCreate.Name).Error("Unable to load custom commands.")
+	}
+
+	s.log.Debugf("Loading commands for guild %s", guildCreate.Name)
+	customCommandsMap := make(map[string]string)
+	for _, c := range customCommands {
+		customCommandsMap[c.CommandName] = c.Message
+		s.log.Debugf("Loaded custom command %s", c.CommandName)
+	}
+
 	newInstance := &ServerInstance{
 		Guild:         guildCreate.Guild,
 		Session:       dSession,
@@ -70,6 +83,7 @@ func (s *shardInstance) guildCreate(dSession *discordgo.Session, guildCreate *di
 			SkipAllCtxCancel:    skipAllCtxCancel,
 			RWMutex:             sync.RWMutex{},
 		},
+		customCommands: customCommandsMap,
 		httpClient: &http.Client{
 			Timeout: time.Second * 30,
 		},
@@ -83,6 +97,9 @@ func (s *shardInstance) guildCreate(dSession *discordgo.Session, guildCreate *di
 			handleSong(newInstance, serverInfo.MusicTextChannelID.String)
 		}
 	}
+
+	// Create muted role if it doesn't exist.
+	_ = newInstance.addMutedRoleToAllChannels()
 }
 
 func (s *shardInstance) guildMemberAdd(dSession *discordgo.Session, guildMemberAdd *discordgo.GuildMemberAdd) {
@@ -90,7 +107,7 @@ func (s *shardInstance) guildMemberAdd(dSession *discordgo.Session, guildMemberA
 }
 
 // This function will be called (due to AddHandler above) every time a new
-// message is created on any channel that the autenticated bot has access to.
+// message is created on any channel that the authenticate bot has access to.
 func (s *shardInstance) messageCreate(dSession *discordgo.Session, messageCreate *discordgo.MessageCreate) {
 	message := messageCreate.Content
 	if len(message) <= 0 {
@@ -99,5 +116,11 @@ func (s *shardInstance) messageCreate(dSession *discordgo.Session, messageCreate
 	s.RLock()
 	serverInstance, _ := s.serverInstances[messageCreate.GuildID]
 	s.RUnlock()
-	s.parseMessageForCommand(messageCreate.Message, serverInstance)
+	commandFound, commandName, args := s.parseMessageForCommand(messageCreate.Message, serverInstance)
+	if commandFound {
+		// Custom commands can override built-in commands.
+		if !s.handleCustomCommand(commandName, args, messageCreate.Message, serverInstance) {
+			s.handleCommand(commandName, args, messageCreate.Message, serverInstance)
+		}
+	}
 }

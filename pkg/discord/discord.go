@@ -62,15 +62,16 @@ type musicOpts struct {
 }
 
 type ServerInstance struct {
-	Guild         *discordgo.Guild
-	Session       *discordgo.Session
-	Log           *logrus.Logger
-	Configuration *models.DiscordServer
-	MusicData     *musicOpts
-	Ctx           context.Context
-	CtxCancel     context.CancelFunc
-	db            *sql.DB
-	httpClient    *http.Client
+	Guild          *discordgo.Guild
+	Session        *discordgo.Session
+	Log            *logrus.Logger
+	Configuration  *models.DiscordServer
+	MusicData      *musicOpts
+	Ctx            context.Context
+	CtxCancel      context.CancelFunc
+	db             *sql.DB
+	httpClient     *http.Client
+	customCommands map[string]string
 	sync.RWMutex
 }
 

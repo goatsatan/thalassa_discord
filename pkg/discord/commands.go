@@ -17,6 +17,7 @@ import (
 	"thalassa_discord/pkg/music"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/null"
 	"github.com/volatiletech/sqlboiler/boil"
 	"github.com/volatiletech/sqlboiler/queries/qm"
@@ -47,6 +48,17 @@ const (
 	DARK_VIVID_PINK     = 12320855
 )
 
+// TODO
+// Finish muted
+// Add context to music. Deadline and cancel
+// Add web portal to configure bot
+// Add notify group that is opt-in
+// Add channel clean up
+// Add channel clean up per user
+// Add dice roll
+// Add coin flip
+// Add custom middleware to read all messages for keywords and auto respond
+
 type Command struct {
 	Name     string
 	HelpText string
@@ -54,6 +66,12 @@ type Command struct {
 }
 
 func (s *shardInstance) registerBuiltInCommands() {
+	s.registerCommand(
+		Command{
+			Name:     "mute",
+			HelpText: "",
+			Execute:  muteUser,
+		})
 	s.registerCommand(
 		Command{
 			Name:     "play",
@@ -141,22 +159,10 @@ func sendErrorEmbed(instance *ServerInstance, errorMessage, errorDescription, ch
 	SendEmbedMessage(instance, embedmsg, channelID, errorMessage)
 }
 
-func (s *shardInstance) parseMessageForCommand(message *discordgo.Message, instance *ServerInstance) {
-	if len(message.Content) > 0 {
-		instance.RLock()
-		prefix := instance.Configuration.PrefixCommand
-		instance.RUnlock()
-		if string(message.Content[0]) == prefix {
-			splitMsg := strings.Split(message.Content, " ")
-			commandName := splitMsg[0]
-			commandName = strings.ToLower(commandName)
-			commandName = commandName[1:]
-			args := splitMsg[1:]
-			command, exists := s.Commands[commandName]
-			if exists {
-				command.Execute(instance, message, args)
-			}
-		}
+func (s *shardInstance) handleCommand(commandName string, args []string, message *discordgo.Message, instance *ServerInstance) {
+	command, exists := s.Commands[commandName]
+	if exists {
+		command.Execute(instance, message, args)
 	}
 }
 
@@ -584,6 +590,32 @@ func getRandomFoxPicture(instance *ServerInstance, message *discordgo.Message, a
 	_, err = instance.Session.ChannelMessageSend(message.ChannelID, dogImage)
 	if err != nil {
 		instance.Log.WithError(err).Error("Unable to send fox message.")
+	}
+}
+
+func muteUser(instance *ServerInstance, message *discordgo.Message, args []string) {
+	mutedRoleID, err := instance.getOrCreateMutedRole()
+	if err != nil {
+		// TODO add error message to command user
+		return
+	}
+	if len(args) > 0 {
+		userID, found := getDiscordUserIDFromString(args[0])
+		if !found {
+			// TODO add error message to command user
+			return
+		}
+		err := instance.Session.GuildMemberRoleAdd(instance.Guild.ID, userID, mutedRoleID)
+		if err != nil {
+			instance.Log.WithFields(logrus.Fields{
+				"Guild":        instance.Guild.Name,
+				"Muted member": userID,
+			}).WithError(err).Error("Unable to add muted role to user.")
+			// TODO add error message to command user
+			return
+		}
+	} else {
+		// TODO add error message to command user.
 	}
 }
 
