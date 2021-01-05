@@ -61,17 +61,45 @@ type musicOpts struct {
 	sync.RWMutex
 }
 
+type serverFeatures struct {
+	linkRemoval        bool
+	music              bool
+	customCommands     bool
+	diceRoll           bool
+	throttleCommands   bool
+	welcomeMessage     bool
+	moderationMuteRole bool
+	notifyMeRole       bool
+}
+
+type rolePermission struct {
+	roleID                string
+	postLinks             bool
+	moderationMuteMember  bool
+	rollDice              bool
+	flipCoin              bool
+	randomImage           bool
+	useCustomCommand      bool
+	manageCustomCommand   bool
+	ignoreCommandThrottle bool
+	playSongs             bool
+	playLists             bool
+	skipSongs             bool
+}
+
 type ServerInstance struct {
-	Guild          *discordgo.Guild
-	Session        *discordgo.Session
-	Log            *logrus.Logger
-	Configuration  *models.DiscordServer
-	MusicData      *musicOpts
-	Ctx            context.Context
-	CtxCancel      context.CancelFunc
-	db             *sql.DB
-	httpClient     *http.Client
-	customCommands map[string]string
+	Guild           *discordgo.Guild
+	Session         *discordgo.Session
+	Log             *logrus.Logger
+	Configuration   *models.DiscordServer
+	MusicData       *musicOpts
+	Ctx             context.Context
+	CtxCancel       context.CancelFunc
+	enabledFeatures serverFeatures
+	rolePermissions map[string]rolePermission
+	db              *sql.DB
+	httpClient      *http.Client
+	customCommands  map[string]string
 	sync.RWMutex
 }
 

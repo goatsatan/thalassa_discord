@@ -10,9 +10,10 @@ import (
 	"thalassa_discord/models"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/volatiletech/null"
-	"github.com/volatiletech/sqlboiler/boil"
-	"github.com/volatiletech/sqlboiler/queries/qm"
+	"github.com/sirupsen/logrus"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 func (s *shardInstance) guildCreate(dSession *discordgo.Session, guildCreate *discordgo.GuildCreate) {
@@ -57,11 +58,37 @@ func (s *shardInstance) guildCreate(dSession *discordgo.Session, guildCreate *di
 		s.log.WithError(err).WithField("Guild Name", guildCreate.Name).Error("Unable to load custom commands.")
 	}
 
-	s.log.Debugf("Loading commands for guild %s", guildCreate.Name)
 	customCommandsMap := make(map[string]string)
 	for _, c := range customCommands {
 		customCommandsMap[c.CommandName] = c.Message
-		s.log.Debugf("Loaded custom command %s", c.CommandName)
+	}
+
+	permissions, err := models.RolePermissions(
+		qm.Where("guild_id = ?", guildCreate.ID),
+	).All(context.TODO(), s.db)
+	if err != nil {
+		s.log.WithFields(logrus.Fields{
+			"Guild": guildCreate.Name,
+		}).WithError(err).Error("Unable to get role permissions for guild.")
+	}
+
+	rolePermissions := make(map[string]rolePermission)
+	for _, permission := range permissions {
+		r := rolePermission{
+			roleID:                permission.RoleID,
+			postLinks:             permission.PostLinks,
+			moderationMuteMember:  permission.ModerationMuteMember,
+			rollDice:              permission.RollDice,
+			flipCoin:              permission.FlipCoin,
+			randomImage:           permission.RandomImage,
+			useCustomCommand:      permission.UseCustomCommands,
+			manageCustomCommand:   permission.ManageCustomCommands,
+			ignoreCommandThrottle: permission.IgnoreCommandThrottle,
+			playSongs:             permission.PlaySongs,
+			playLists:             permission.PlayLists,
+			skipSongs:             permission.SkipSongs,
+		}
+		rolePermissions[permission.RoleID] = r
 	}
 
 	newInstance := &ServerInstance{
@@ -72,6 +99,17 @@ func (s *shardInstance) guildCreate(dSession *discordgo.Session, guildCreate *di
 		db:            s.db,
 		Ctx:           ctx,
 		CtxCancel:     ctxCancel,
+		enabledFeatures: serverFeatures{
+			linkRemoval:        serverInfo.LinkRemovalEnabled,
+			music:              serverInfo.MusicEnabled,
+			customCommands:     serverInfo.CustomCommandsEnabled,
+			diceRoll:           serverInfo.DiceRollEnabled,
+			throttleCommands:   serverInfo.ThrottleCommandsEnabled,
+			welcomeMessage:     serverInfo.WelcomeMessageEnabled,
+			moderationMuteRole: serverInfo.ModerationMuteEnabled,
+			notifyMeRole:       serverInfo.NotifyMeRoleEnabled,
+		},
+		rolePermissions: rolePermissions,
 		MusicData: &musicOpts{
 			SongPlaying:         false,
 			SongStarted:         time.Time{},
@@ -99,7 +137,9 @@ func (s *shardInstance) guildCreate(dSession *discordgo.Session, guildCreate *di
 	}
 
 	// Create muted role if it doesn't exist.
-	_ = newInstance.addMutedRoleToAllChannels()
+	if newInstance.enabledFeatures.moderationMuteRole {
+		_ = newInstance.addMutedRoleToAllChannels()
+	}
 }
 
 func (s *shardInstance) guildMemberAdd(dSession *discordgo.Session, guildMemberAdd *discordgo.GuildMemberAdd) {
@@ -123,4 +163,9 @@ func (s *shardInstance) messageCreate(dSession *discordgo.Session, messageCreate
 			s.handleCommand(commandName, args, messageCreate.Message, serverInstance)
 		}
 	}
+	start := time.Now()
+	perms, _ := serverInstance.getUserPermissions(messageCreate.Message)
+	duration := time.Since(start)
+	s.log.Debug(duration)
+	s.log.Debugf("%#v\n", perms)
 }

@@ -18,9 +18,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sirupsen/logrus"
-	"github.com/volatiletech/null"
-	"github.com/volatiletech/sqlboiler/boil"
-	"github.com/volatiletech/sqlboiler/queries/qm"
+	"github.com/volatiletech/null/v8"
+	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 const (
@@ -58,6 +58,8 @@ const (
 // Add dice roll
 // Add coin flip
 // Add custom middleware to read all messages for keywords and auto respond
+// Disconnect muted members from voice chat so the mute refreshes
+// Check new member joins to see if they are muted
 
 type Command struct {
 	Name     string
@@ -71,6 +73,12 @@ func (s *shardInstance) registerBuiltInCommands() {
 			Name:     "mute",
 			HelpText: "",
 			Execute:  muteUser,
+		})
+	s.registerCommand(
+		Command{
+			Name:     "unmute",
+			HelpText: "",
+			Execute:  unmuteUser,
 		})
 	s.registerCommand(
 		Command{
@@ -594,15 +602,25 @@ func getRandomFoxPicture(instance *ServerInstance, message *discordgo.Message, a
 }
 
 func muteUser(instance *ServerInstance, message *discordgo.Message, args []string) {
+	userPerms, err := instance.getUserPermissions(message)
+	if err != nil {
+		sendErrorEmbed(instance, "Unable to get user permissions.", err.Error(), message.ChannelID)
+		return
+	}
+
+	if !userPerms.moderationMuteMember {
+		return
+	}
+
 	mutedRoleID, err := instance.getOrCreateMutedRole()
 	if err != nil {
-		// TODO add error message to command user
+		sendErrorEmbed(instance, "Unable to get muted role.", err.Error(), message.ChannelID)
 		return
 	}
 	if len(args) > 0 {
 		userID, found := getDiscordUserIDFromString(args[0])
 		if !found {
-			// TODO add error message to command user
+			sendErrorEmbed(instance, "Invalid command argument.", "Unable to find user from specified id.", message.ChannelID)
 			return
 		}
 		err := instance.Session.GuildMemberRoleAdd(instance.Guild.ID, userID, mutedRoleID)
@@ -611,11 +629,106 @@ func muteUser(instance *ServerInstance, message *discordgo.Message, args []strin
 				"Guild":        instance.Guild.Name,
 				"Muted member": userID,
 			}).WithError(err).Error("Unable to add muted role to user.")
-			// TODO add error message to command user
+			sendErrorEmbed(instance, "Unable to add muted role to user.", err.Error(), message.ChannelID)
 			return
 		}
+		mutedModel := models.MutedMember{
+			UserID:    userID,
+			GuildID:   instance.Guild.ID,
+			CreatedAt: time.Now(),
+			ExpiresAt: null.Time{},
+		}
+		err = mutedModel.Upsert(context.TODO(), instance.db, true, []string{"user_id", "guild_id"},
+			boil.Whitelist("created_at", "expires_at"), boil.Infer())
+
+		if err != nil {
+			instance.Log.WithFields(logrus.Fields{
+				"Guild":  instance.Guild.Name,
+				"UserID": userID,
+			}).WithError(err).Error("Unable to add muted user to database.")
+		}
+
+		for _, vu := range instance.Guild.VoiceStates {
+			if vu.UserID == userID {
+				err := instance.Session.GuildMemberMove(instance.Guild.ID, userID, nil)
+				if err != nil {
+					instance.Log.WithFields(logrus.Fields{
+						"Guild":       instance.Guild.Name,
+						"Requester":   message.Author.Username,
+						"MutedUserID": userID,
+					}).WithError(err).Error("Unable to disconnect muted member from voice.")
+					sendErrorEmbed(instance, "Unable to disconnect user from voice to mute.", "You must disconnect them manually.", message.ChannelID)
+				}
+			}
+		}
+
+		embedmsg := NewEmbedInfer(instance.Session.State.User.Username, 28804).
+			AddField("Successfully Muted User", args[0], false).
+			MessageEmbed
+		SendEmbedMessage(instance, embedmsg, message.ChannelID, "Unable to send muted user message.")
 	} else {
-		// TODO add error message to command user.
+		sendErrorEmbed(instance, "Invalid command argument.", "You must specify a user.", message.ChannelID)
+	}
+}
+
+func unmuteUser(instance *ServerInstance, message *discordgo.Message, args []string) {
+	userPerms, err := instance.getUserPermissions(message)
+	if err != nil {
+		sendErrorEmbed(instance, "Unable to get user permissions.", err.Error(), message.ChannelID)
+		return
+	}
+
+	if !userPerms.moderationMuteMember {
+		return
+	}
+
+	mutedRoleID, err := instance.getOrCreateMutedRole()
+	if err != nil {
+		sendErrorEmbed(instance, "Unable to get muted role.", err.Error(), message.ChannelID)
+		return
+	}
+	if len(args) > 0 {
+		userID, found := getDiscordUserIDFromString(args[0])
+		if !found {
+			sendErrorEmbed(instance, "Invalid command argument.", "Unable to find user from specified id.", message.ChannelID)
+			return
+		}
+		err := instance.Session.GuildMemberRoleRemove(instance.Guild.ID, userID, mutedRoleID)
+		if err != nil {
+			instance.Log.WithFields(logrus.Fields{
+				"Guild":        instance.Guild.Name,
+				"Muted member": userID,
+			}).WithError(err).Error("Unable to remove muted role from user.")
+			sendErrorEmbed(instance, "Unable to remove muted role from user.", err.Error(), message.ChannelID)
+			return
+		}
+
+		mutedModel, err := models.MutedMembers(
+			qm.Where("user_id = ?", userID),
+			qm.And("guild_id = ?", instance.Guild.ID),
+		).One(context.TODO(), instance.db)
+		if err != nil {
+			instance.Log.WithFields(logrus.Fields{
+				"Guild":  instance.Guild.Name,
+				"UserID": userID,
+			}).WithError(err).Error("Unable to get muted member from database")
+		} else {
+			_, err := mutedModel.Delete(context.TODO(), instance.db)
+			if err != nil {
+				instance.Log.WithFields(logrus.Fields{
+					"Guild":  instance.Guild.Name,
+					"UserID": userID,
+				}).WithError(err).Error("Unable to remove muted user from database.")
+				sendErrorEmbed(instance, "Database error.", "Unable to remove muted member.", message.ChannelID)
+			}
+		}
+
+		embedmsg := NewEmbedInfer(instance.Session.State.User.Username, 28804).
+			AddField("Successfully Unmuted User", args[0], false).
+			MessageEmbed
+		SendEmbedMessage(instance, embedmsg, message.ChannelID, "Unable to send unmuted user message.")
+	} else {
+		sendErrorEmbed(instance, "Invalid command argument.", "You must specify a user.", message.ChannelID)
 	}
 }
 
