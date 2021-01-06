@@ -40,4 +40,18 @@ func RegisterCommands(s *discord.ShardInstance) {
 			Execute:             getRandomSafeJoke,
 			RequiredPermissions: nil,
 		})
+	s.RegisterCommand(
+		discord.Command{
+			Name:                "duck",
+			HelpText:            "This gets a random picture of a duck.",
+			Execute:             getRandomDuckPicture,
+			RequiredPermissions: []discord.Permission{discord.PermissionRandomImage},
+		})
+	s.RegisterCommand(
+		discord.Command{
+			Name:                "shibe",
+			HelpText:            "This gets a random picture of a shibe.",
+			Execute:             getRandomShibePicture,
+			RequiredPermissions: []discord.Permission{discord.PermissionRandomImage},
+		})
 }

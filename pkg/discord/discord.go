@@ -106,7 +106,7 @@ type ServerInstance struct {
 	rolePermissions map[string]rolePermission
 	Db              *sql.DB
 	HttpClient      *http.Client
-	customCommands  map[string]string
+	CustomCommands  map[string]string
 	sync.RWMutex
 }
 
@@ -198,10 +198,13 @@ func (s *ShardInstance) Start() {
 		return
 	}
 
+	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsAllWithoutPrivileged | discordgo.IntentsGuildMembers)
+
 	// Register messageCreate as a callback for the messageCreate events.
 	dg.AddHandler(s.messageCreate)
 	dg.AddHandler(s.guildCreate)
 	dg.AddHandler(s.guildMemberAdd)
+	dg.AddHandler(s.guildMemberUpdate)
 
 	// Open the websocket and begin listening.
 	err = dg.Open()

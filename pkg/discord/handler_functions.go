@@ -223,7 +223,7 @@ func (*guildCreate) createDiscordGuildInstance(logger *logrus.Logger, db *sql.DB
 			SkipAllCtxCancel:    skipAllCtxCancel,
 			RWMutex:             sync.RWMutex{},
 		},
-		customCommands: customCommandsMap,
+		CustomCommands: customCommandsMap,
 		HttpClient: &http.Client{
 			Timeout: time.Second * 30,
 		},

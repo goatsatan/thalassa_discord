@@ -21,7 +21,8 @@ const (
 	PermissionPlaySongs
 	PermissionPlayLists
 	PermissionSkipSongs
-	PermissionAll
+	PermissionAdministrator
+	PermissionOwner
 )
 
 func (s *ShardInstance) parseMessageForCommand(message *discordgo.Message, instance *ServerInstance,
@@ -60,7 +61,8 @@ func (serverInstance *ServerInstance) getUserPermissions(message *discordgo.Mess
 		return nil, err
 	}
 
-	userIsAdministrator := false
+	perms := make(map[Permission]struct{})
+
 	for _, roleID := range commandMember.Roles {
 		role, err := serverInstance.GetGuildRole(roleID)
 		if err != nil {
@@ -69,26 +71,20 @@ func (serverInstance *ServerInstance) getUserPermissions(message *discordgo.Mess
 		}
 		if role.Permissions&discordgo.PermissionAdministrator == discordgo.PermissionAdministrator {
 			// User is has a role with administrator permissions.
-			userIsAdministrator = true
-			break
+			perms[PermissionAdministrator] = struct{}{}
+			return perms, nil
 		}
 
 		guild, err := serverInstance.GetGuild()
 		if err == nil {
 			if guild.OwnerID == message.Author.ID {
 				// User is the owner of the server.
-				userIsAdministrator = true
-				break
+				perms[PermissionAdministrator] = struct{}{}
+				perms[PermissionOwner] = struct{}{}
+				return perms, nil
 			}
 		}
 
-	}
-
-	perms := make(map[Permission]struct{})
-
-	if userIsAdministrator {
-		perms[PermissionAll] = struct{}{}
-		return perms, nil
 	}
 
 	// if userIsAdministrator {
@@ -128,27 +124,27 @@ func (serverInstance *ServerInstance) getUserPermissions(message *discordgo.Mess
 	// 	for roleID, role := range serverInstance.rolePermissions {
 	// 		if r == roleID {
 	// 			switch {
-	// 			case role.postLinks:
+	// 			if role.postLinks:
 	// 				commandMemberPermissions.postLinks = true
-	// 			case role.moderationMuteMember:
+	// 			if role.moderationMuteMember:
 	// 				commandMemberPermissions.moderationMuteMember = true
-	// 			case role.rollDice:
+	// 			if role.rollDice:
 	// 				commandMemberPermissions.rollDice = true
-	// 			case role.flipCoin:
+	// 			if role.flipCoin:
 	// 				commandMemberPermissions.flipCoin = true
-	// 			case role.randomImage:
+	// 			if role.randomImage:
 	// 				commandMemberPermissions.randomImage = true
-	// 			case role.useCustomCommand:
+	// 			if role.useCustomCommand:
 	// 				commandMemberPermissions.useCustomCommand = true
-	// 			case role.manageCustomCommand:
+	// 			if role.manageCustomCommand:
 	// 				commandMemberPermissions.manageCustomCommand = true
-	// 			case role.ignoreCommandThrottle:
+	// 			if role.ignoreCommandThrottle:
 	// 				commandMemberPermissions.ignoreCommandThrottle = true
-	// 			case role.playSongs:
+	// 			if role.playSongs:
 	// 				commandMemberPermissions.playSongs = true
-	// 			case role.playLists:
+	// 			if role.playLists:
 	// 				commandMemberPermissions.playLists = true
-	// 			case role.skipSongs:
+	// 			if role.skipSongs:
 	// 				commandMemberPermissions.skipSongs = true
 	// 			}
 	// 			break
@@ -165,34 +161,42 @@ func (serverInstance *ServerInstance) getUserPermissions(message *discordgo.Mess
 		userRoles = append(userRoles, everyoneGroupID)
 	}
 
-	for _, r := range commandMember.Roles {
+	for _, r := range userRoles {
 		for roleID, role := range serverInstance.rolePermissions {
 			if r == roleID {
-				switch {
-				case role.postLinks:
+				if role.postLinks {
 					perms[PermissionPostLinks] = struct{}{}
-				case role.moderationMuteMember:
+				}
+				if role.moderationMuteMember {
 					perms[PermissionModerationMuteMember] = struct{}{}
-				case role.rollDice:
+				}
+				if role.rollDice {
 					perms[PermissionRollDice] = struct{}{}
-				case role.flipCoin:
+				}
+				if role.flipCoin {
 					perms[PermissionFlipCoin] = struct{}{}
-				case role.randomImage:
+				}
+				if role.randomImage {
 					perms[PermissionRandomImage] = struct{}{}
-				case role.useCustomCommand:
+				}
+				if role.useCustomCommand {
 					perms[PermissionUseCustomCommand] = struct{}{}
-				case role.manageCustomCommand:
+				}
+				if role.manageCustomCommand {
 					perms[PermissionManageCustomCommand] = struct{}{}
-				case role.ignoreCommandThrottle:
+				}
+				if role.ignoreCommandThrottle {
 					perms[PermissionIgnoreCommandThrottle] = struct{}{}
-				case role.playSongs:
+				}
+				if role.playSongs {
 					perms[PermissionPlaySongs] = struct{}{}
-				case role.playLists:
+				}
+				if role.playLists {
 					perms[PermissionPlayLists] = struct{}{}
-				case role.skipSongs:
+				}
+				if role.skipSongs {
 					perms[PermissionSkipSongs] = struct{}{}
 				}
-				break
 			}
 		}
 	}

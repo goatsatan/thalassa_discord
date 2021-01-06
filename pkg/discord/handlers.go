@@ -70,3 +70,6 @@ func (s *ShardInstance) messageCreate(dSession *discordgo.Session, messageCreate
 		}).Debugf("%s took %s to fully run.", commandName, duration)
 	}
 }
+
+func (s *ShardInstance) guildMemberUpdate(dSession *discordgo.Session, guildMemberUpdate *discordgo.GuildMemberUpdate) {
+}

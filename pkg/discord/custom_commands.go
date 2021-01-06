@@ -9,7 +9,7 @@ import (
 
 func (s *ShardInstance) handleCustomCommand(commandName string, args []string, message *discordgo.Message, instance *ServerInstance) (foundCustom bool) {
 	instance.RLock()
-	customCommand, exists := instance.customCommands[commandName]
+	customCommand, exists := instance.CustomCommands[commandName]
 	instance.RUnlock()
 	if exists {
 		var msg string

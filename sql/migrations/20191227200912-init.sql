@@ -69,6 +69,8 @@ create table custom_command
     updated_at       time with time zone
 );
 
+create unique index guild_command_idx on custom_command (guild_id, command_name);
+
 -- +migrate Down
 drop table song_request;
 drop table chat_history;

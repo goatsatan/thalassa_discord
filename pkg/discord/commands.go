@@ -84,8 +84,10 @@ func (c Command) userHasCommandPermission(instance *ServerInstance, message *dis
 		return false
 	}
 
+	// instance.Log.WithField("User", message.Author.Username).Debugf("%#v\n", userPerms)
+
 	// Check for all permissions.
-	_, exists := userPerms[PermissionAll]
+	_, exists := userPerms[PermissionAdministrator]
 	if exists {
 		return true
 	}

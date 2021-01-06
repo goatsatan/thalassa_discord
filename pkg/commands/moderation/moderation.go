@@ -33,4 +33,18 @@ func RegisterCommands(s *discord.ShardInstance) {
 			Execute:             notifyUnSubscribe,
 			RequiredPermissions: nil,
 		})
+	s.RegisterCommand(
+		discord.Command{
+			Name:                "cc",
+			HelpText:            "This will create a custom command you can use. Must include command name and a message after.",
+			Execute:             createCustomCommand,
+			RequiredPermissions: []discord.Permission{discord.PermissionManageCustomCommand},
+		})
+	s.RegisterCommand(
+		discord.Command{
+			Name:                "dc",
+			HelpText:            "This will delete a custom command. You must provide the name.",
+			Execute:             deleteCustomCommand,
+			RequiredPermissions: []discord.Permission{discord.PermissionManageCustomCommand},
+		})
 }
