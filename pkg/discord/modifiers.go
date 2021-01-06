@@ -1,19 +1,19 @@
 package discord
 
-func (s *shardInstance) addServerInstance(guildID string, instance *ServerInstance) {
+func (s *ShardInstance) addServerInstance(guildID string, instance *ServerInstance) {
 	s.Lock()
-	s.serverInstances[guildID] = instance
+	s.ServerInstances[guildID] = instance
 	s.Unlock()
 }
 
-func (s *shardInstance) getServerInstance(guildID string) *ServerInstance {
+func (s *ShardInstance) getServerInstance(guildID string) *ServerInstance {
 	s.RLock()
 	defer s.RUnlock()
-	return s.serverInstances[guildID]
+	return s.ServerInstances[guildID]
 }
 
-func (s *shardInstance) removeServerInstance(guildID string) {
+func (s *ShardInstance) removeServerInstance(guildID string) {
 	s.Lock()
-	delete(s.serverInstances, guildID)
+	delete(s.ServerInstances, guildID)
 	s.Unlock()
 }

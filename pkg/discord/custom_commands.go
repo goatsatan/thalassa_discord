@@ -7,7 +7,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func (s *shardInstance) handleCustomCommand(commandName string, args []string, message *discordgo.Message, instance *ServerInstance) (foundCustom bool) {
+func (s *ShardInstance) handleCustomCommand(commandName string, args []string, message *discordgo.Message, instance *ServerInstance) (foundCustom bool) {
 	instance.RLock()
 	customCommand, exists := instance.customCommands[commandName]
 	instance.RUnlock()
@@ -21,7 +21,7 @@ func (s *shardInstance) handleCustomCommand(commandName string, args []string, m
 		}
 		_, err := instance.Session.ChannelMessageSend(message.ChannelID, msg)
 		if err != nil {
-			s.log.WithError(err).Error("Unable to send custom command message.")
+			s.Log.WithError(err).Error("Unable to send custom command message.")
 		}
 		return true
 	}

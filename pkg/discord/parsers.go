@@ -5,10 +5,26 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
 )
 
-func (s *shardInstance) parseMessageForCommand(message *discordgo.Message, instance *ServerInstance,
+type Permission int
+
+const (
+	PermissionPostLinks Permission = iota
+	PermissionModerationMuteMember
+	PermissionRollDice
+	PermissionFlipCoin
+	PermissionRandomImage
+	PermissionUseCustomCommand
+	PermissionManageCustomCommand
+	PermissionIgnoreCommandThrottle
+	PermissionPlaySongs
+	PermissionPlayLists
+	PermissionSkipSongs
+	PermissionAll
+)
+
+func (s *ShardInstance) parseMessageForCommand(message *discordgo.Message, instance *ServerInstance,
 ) (foundCommand bool, command string, arguments []string) {
 	if len(message.Content) > 0 {
 		instance.RLock()
@@ -26,7 +42,7 @@ func (s *shardInstance) parseMessageForCommand(message *discordgo.Message, insta
 	return false, "", nil
 }
 
-func getDiscordUserIDFromString(mention string) (string, bool) {
+func GetDiscordUserIDFromString(mention string) (string, bool) {
 	re := regexp.MustCompile("<@(.+)>")
 	s := re.FindStringSubmatch(mention)
 	re = regexp.MustCompile("!")
@@ -38,23 +54,15 @@ func getDiscordUserIDFromString(mention string) (string, bool) {
 	}
 }
 
-func (serverInstance *ServerInstance) getUserPermissions(message *discordgo.Message) (*rolePermission, error) {
-	commandMember, err := serverInstance.Session.State.Member(serverInstance.Guild.ID, message.Author.ID)
+func (serverInstance *ServerInstance) getUserPermissions(message *discordgo.Message) (map[Permission]struct{}, error) {
+	commandMember, err := serverInstance.GetGuildMember(message.Author.ID)
 	if err != nil {
-		commandMember, err = serverInstance.Session.GuildMember(serverInstance.Guild.ID, message.Author.ID)
-		if err != nil {
-			serverInstance.Log.WithFields(logrus.Fields{
-				"Guild": serverInstance.Guild.Name,
-				"User":  message.Author.Username,
-			}).WithError(err).Error("Unable to get command member from message.")
-			// TODO add error
-			return nil, err
-		}
+		return nil, err
 	}
 
 	userIsAdministrator := false
 	for _, roleID := range commandMember.Roles {
-		role, err := serverInstance.Session.State.Role(serverInstance.Guild.ID, roleID)
+		role, err := serverInstance.GetGuildRole(roleID)
 		if err != nil {
 			serverInstance.Log.WithError(err).Error("Unable to get role permission.")
 			break
@@ -65,44 +73,96 @@ func (serverInstance *ServerInstance) getUserPermissions(message *discordgo.Mess
 			break
 		}
 
-		if serverInstance.Guild.OwnerID == message.Author.ID {
-			// User is the owner of the server.
-			userIsAdministrator = true
-			break
+		guild, err := serverInstance.GetGuild()
+		if err == nil {
+			if guild.OwnerID == message.Author.ID {
+				// User is the owner of the server.
+				userIsAdministrator = true
+				break
+			}
 		}
+
 	}
+
+	perms := make(map[Permission]struct{})
 
 	if userIsAdministrator {
-		commandMemberPermissions := &rolePermission{
-			roleID:                "User",
-			postLinks:             true,
-			moderationMuteMember:  true,
-			rollDice:              true,
-			flipCoin:              true,
-			randomImage:           true,
-			useCustomCommand:      true,
-			manageCustomCommand:   true,
-			ignoreCommandThrottle: true,
-			playSongs:             true,
-			playLists:             true,
-			skipSongs:             true,
-		}
-		return commandMemberPermissions, nil
+		perms[PermissionAll] = struct{}{}
+		return perms, nil
 	}
 
-	commandMemberPermissions := &rolePermission{
-		roleID:                "User",
-		postLinks:             false,
-		moderationMuteMember:  false,
-		rollDice:              false,
-		flipCoin:              false,
-		randomImage:           false,
-		useCustomCommand:      false,
-		manageCustomCommand:   false,
-		ignoreCommandThrottle: false,
-		playSongs:             false,
-		playLists:             false,
-		skipSongs:             false,
+	// if userIsAdministrator {
+	// 	commandMemberPermissions := &rolePermission{
+	// 		roleID:                "User",
+	// 		postLinks:             true,
+	// 		moderationMuteMember:  true,
+	// 		rollDice:              true,
+	// 		flipCoin:              true,
+	// 		randomImage:           true,
+	// 		useCustomCommand:      true,
+	// 		manageCustomCommand:   true,
+	// 		ignoreCommandThrottle: true,
+	// 		playSongs:             true,
+	// 		playLists:             true,
+	// 		skipSongs:             true,
+	// 	}
+	// 	return commandMemberPermissions, nil
+	// }
+	//
+	// commandMemberPermissions := &rolePermission{
+	// 	roleID:                "User",
+	// 	postLinks:             false,
+	// 	moderationMuteMember:  false,
+	// 	rollDice:              false,
+	// 	flipCoin:              false,
+	// 	randomImage:           false,
+	// 	useCustomCommand:      false,
+	// 	manageCustomCommand:   false,
+	// 	ignoreCommandThrottle: false,
+	// 	playSongs:             false,
+	// 	playLists:             false,
+	// 	skipSongs:             false,
+	// }
+
+	// for _, r := range commandMember.Roles {
+	// 	for roleID, role := range serverInstance.rolePermissions {
+	// 		if r == roleID {
+	// 			switch {
+	// 			case role.postLinks:
+	// 				commandMemberPermissions.postLinks = true
+	// 			case role.moderationMuteMember:
+	// 				commandMemberPermissions.moderationMuteMember = true
+	// 			case role.rollDice:
+	// 				commandMemberPermissions.rollDice = true
+	// 			case role.flipCoin:
+	// 				commandMemberPermissions.flipCoin = true
+	// 			case role.randomImage:
+	// 				commandMemberPermissions.randomImage = true
+	// 			case role.useCustomCommand:
+	// 				commandMemberPermissions.useCustomCommand = true
+	// 			case role.manageCustomCommand:
+	// 				commandMemberPermissions.manageCustomCommand = true
+	// 			case role.ignoreCommandThrottle:
+	// 				commandMemberPermissions.ignoreCommandThrottle = true
+	// 			case role.playSongs:
+	// 				commandMemberPermissions.playSongs = true
+	// 			case role.playLists:
+	// 				commandMemberPermissions.playLists = true
+	// 			case role.skipSongs:
+	// 				commandMemberPermissions.skipSongs = true
+	// 			}
+	// 			break
+	// 		}
+	// 	}
+	// }
+	// return commandMemberPermissions, nil
+
+	userRoles := commandMember.Roles
+
+	// Add @everyone role to user roles since it's not included by default.
+	everyoneGroupID, err := serverInstance.GetEveryoneRoleID()
+	if err == nil {
+		userRoles = append(userRoles, everyoneGroupID)
 	}
 
 	for _, r := range commandMember.Roles {
@@ -110,31 +170,31 @@ func (serverInstance *ServerInstance) getUserPermissions(message *discordgo.Mess
 			if r == roleID {
 				switch {
 				case role.postLinks:
-					commandMemberPermissions.postLinks = true
+					perms[PermissionPostLinks] = struct{}{}
 				case role.moderationMuteMember:
-					commandMemberPermissions.moderationMuteMember = true
+					perms[PermissionModerationMuteMember] = struct{}{}
 				case role.rollDice:
-					commandMemberPermissions.rollDice = true
+					perms[PermissionRollDice] = struct{}{}
 				case role.flipCoin:
-					commandMemberPermissions.flipCoin = true
+					perms[PermissionFlipCoin] = struct{}{}
 				case role.randomImage:
-					commandMemberPermissions.randomImage = true
+					perms[PermissionRandomImage] = struct{}{}
 				case role.useCustomCommand:
-					commandMemberPermissions.useCustomCommand = true
+					perms[PermissionUseCustomCommand] = struct{}{}
 				case role.manageCustomCommand:
-					commandMemberPermissions.manageCustomCommand = true
+					perms[PermissionManageCustomCommand] = struct{}{}
 				case role.ignoreCommandThrottle:
-					commandMemberPermissions.ignoreCommandThrottle = true
+					perms[PermissionIgnoreCommandThrottle] = struct{}{}
 				case role.playSongs:
-					commandMemberPermissions.playSongs = true
+					perms[PermissionPlaySongs] = struct{}{}
 				case role.playLists:
-					commandMemberPermissions.playLists = true
+					perms[PermissionPlayLists] = struct{}{}
 				case role.skipSongs:
-					commandMemberPermissions.skipSongs = true
+					perms[PermissionSkipSongs] = struct{}{}
 				}
 				break
 			}
 		}
 	}
-	return commandMemberPermissions, nil
+	return perms, nil
 }

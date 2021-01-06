@@ -25,6 +25,8 @@ create table role_permission
     skip_songs              bool default false not null
 );
 
+create unique index idx_guild_role on role_permission (guild_id, role_id);
+
 create table muted_members
 (
     id         bigserial primary key,

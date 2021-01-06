@@ -8,15 +8,57 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (serverInstance *ServerInstance) getOrCreateMutedRole() (roleID string, err error) {
-	serverInstance.Lock()
-	defer serverInstance.Unlock()
+func (serverInstance *ServerInstance) GetOrCreateNotifyRole() (roleID string, err error) {
 	var mutedRole *discordgo.Role
-	foundMutedRole := false
-	guildRoles, err := serverInstance.Session.GuildRoles(serverInstance.Guild.ID)
+	foundNotifyRole := false
+	guildRoles, err := serverInstance.Session.GuildRoles(serverInstance.GuildID)
 	if err != nil {
 		serverInstance.Log.WithFields(logrus.Fields{
-			"Guild": serverInstance.Guild.Name,
+			"Guild": serverInstance.GuildID,
+		}).WithError(err).Error("Unable to get guild roles.")
+		return "", fmt.Errorf("unable to get guild roles")
+	}
+	for _, role := range guildRoles {
+		if strings.ToLower(role.Name) == "notify me" {
+			mutedRole = role
+			foundNotifyRole = true
+			break
+		}
+	}
+	if !foundNotifyRole {
+		newRole, err := serverInstance.Session.GuildRoleCreate(serverInstance.GuildID)
+		if err != nil {
+			serverInstance.Log.WithField("Guild", serverInstance.GuildID).WithError(err).Error("Unable to create notify role.")
+			return "", fmt.Errorf("unable to create notify role")
+		}
+		newRole, err = serverInstance.Session.GuildRoleEdit(
+			serverInstance.GuildID,
+			newRole.ID,
+			"Notify Me",
+			ORANGE,
+			false,
+			discordgo.PermissionReadMessageHistory|discordgo.PermissionViewChannel|discordgo.PermissionVoiceConnect,
+			false,
+		)
+		if err != nil {
+			serverInstance.Log.WithField("Guild", serverInstance.GuildID).WithError(err).Error("Unable to update notify role.")
+			return "", err
+		}
+		mutedRole = newRole
+	}
+	if mutedRole == nil {
+		return "", fmt.Errorf("notify role not found")
+	}
+	return mutedRole.ID, nil
+}
+
+func (serverInstance *ServerInstance) GetOrCreateMutedRole() (roleID string, err error) {
+	var mutedRole *discordgo.Role
+	foundMutedRole := false
+	guildRoles, err := serverInstance.Session.GuildRoles(serverInstance.GuildID)
+	if err != nil {
+		serverInstance.Log.WithFields(logrus.Fields{
+			"Guild": serverInstance.GuildID,
 		}).WithError(err).Error("Unable to get guild roles.")
 		return "", fmt.Errorf("unable to get guild roles")
 	}
@@ -28,13 +70,13 @@ func (serverInstance *ServerInstance) getOrCreateMutedRole() (roleID string, err
 		}
 	}
 	if !foundMutedRole {
-		newRole, err := serverInstance.Session.GuildRoleCreate(serverInstance.Guild.ID)
+		newRole, err := serverInstance.Session.GuildRoleCreate(serverInstance.GuildID)
 		if err != nil {
-			serverInstance.Log.WithField("Guild", serverInstance.Guild.Name).WithError(err).Error("Unable to create muted role.")
+			serverInstance.Log.WithField("Guild", serverInstance.GuildID).WithError(err).Error("Unable to create muted role.")
 			return "", fmt.Errorf("unable to create muted role")
 		}
 		newRole, err = serverInstance.Session.GuildRoleEdit(
-			serverInstance.Guild.ID,
+			serverInstance.GuildID,
 			newRole.ID,
 			"Muted",
 			12370112,
@@ -43,7 +85,7 @@ func (serverInstance *ServerInstance) getOrCreateMutedRole() (roleID string, err
 			false,
 		)
 		if err != nil {
-			serverInstance.Log.WithField("Guild", serverInstance.Guild.Name).WithError(err).Error("Unable to update muted role.")
+			serverInstance.Log.WithField("Guild", serverInstance.GuildID).WithError(err).Error("Unable to update muted role.")
 			return "", err
 		}
 		mutedRole = newRole
@@ -66,7 +108,7 @@ func (serverInstance *ServerInstance) addMutedRoleToChannel(channel *discordgo.C
 		err := serverInstance.Session.ChannelPermissionSet(channel.ID, mutedRoleID, "role", 0, 2553920)
 		if err != nil {
 			serverInstance.Log.WithFields(logrus.Fields{
-				"Guild":   serverInstance.Guild.Name,
+				"Guild":   serverInstance.GuildID,
 				"Channel": channel.Name,
 			}).WithError(err).Error("Unable to add muted role to channel.")
 		}
@@ -75,14 +117,14 @@ func (serverInstance *ServerInstance) addMutedRoleToChannel(channel *discordgo.C
 }
 
 func (serverInstance *ServerInstance) addMutedRoleToAllChannels() error {
-	mutedRoleID, err := serverInstance.getOrCreateMutedRole()
+	mutedRoleID, err := serverInstance.GetOrCreateMutedRole()
 	if err != nil {
 		return err
 	}
-	guildChannels, err := serverInstance.Session.GuildChannels(serverInstance.Guild.ID)
+	guildChannels, err := serverInstance.Session.GuildChannels(serverInstance.GuildID)
 	if err != nil {
 		serverInstance.Log.WithFields(logrus.Fields{
-			"Guild": serverInstance.Guild.Name,
+			"Guild": serverInstance.GuildID,
 		}).WithError(err).Error("Unable to get guild channels.")
 		return err
 	}
