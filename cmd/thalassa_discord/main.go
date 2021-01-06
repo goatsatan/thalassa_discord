@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"thalassa_discord/pkg/commands/example"
+	"thalassa_discord/pkg/commands/general"
 	"thalassa_discord/pkg/commands/lookup"
 	"thalassa_discord/pkg/commands/moderation"
 	"thalassa_discord/pkg/commands/music"
@@ -23,6 +24,7 @@ func main() {
 	music.RegisterCommands(discordInstance)
 	random.RegisterCommands(discordInstance)
 	example.RegisterCommands(discordInstance)
+	general.RegisterCommands(discordInstance)
 
 	discordInstance.Start()
 }
