@@ -46,7 +46,7 @@ func NewEmbedInfer(authorName string, color int) *Embed {
 		Provider:    nil,
 		Author:      nil,
 		// Author: &discordgo.MessageEmbedAuthor{
-		// 	Name:    authorName,
+		// 	FriendlyName:    authorName,
 		// 	IconURL: "https://uploader.xylona.net/download/cf191226-a4c2-4942-aafb-eaa93fecf8db",
 		// 	URL:     "https://discord.thalassabot.net",
 		// },
@@ -54,12 +54,19 @@ func NewEmbedInfer(authorName string, color int) *Embed {
 	}}
 }
 
-func SendEmbedMessage(instance *ServerInstance, embedMessage *discordgo.MessageEmbed, channelID string,
+func (serverInstance *ServerInstance) SendEmbedMessage(embedMessage *discordgo.MessageEmbed, channelID string,
 	messageOnError string) {
-	_, err := instance.Session.ChannelMessageSendEmbed(channelID, embedMessage)
+	_, err := serverInstance.Session.ChannelMessageSendEmbed(channelID, embedMessage)
 	if err != nil {
-		instance.Log.WithError(err).Error(messageOnError)
+		serverInstance.Log.WithError(err).Error(messageOnError)
 	}
+}
+
+func (serverInstance *ServerInstance) SendErrorEmbed(errorMessage, errorDescription, channelID string) {
+	embedmsg := NewEmbedInfer(serverInstance.Session.State.User.Username, RED).
+		AddField(errorMessage, errorDescription, false).
+		MessageEmbed
+	serverInstance.SendEmbedMessage(embedmsg, channelID, errorMessage)
 }
 
 // SetTimestamp

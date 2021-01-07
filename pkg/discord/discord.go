@@ -36,14 +36,21 @@ type BotConfiguration struct {
 	DBSSL        string
 }
 
-type shardInstance struct {
-	closeSignal     chan os.Signal
+type handlers struct {
+	guildCreate    *guildCreate
+	guildMemberAdd *guildMemberAdd
+	messageCreate  *messageCreate
+}
+
+type ShardInstance struct {
+	CloseSignal     chan os.Signal
 	directory       string
-	log             *logrus.Logger
-	serverInstances map[string]*ServerInstance
+	Log             *logrus.Logger
+	ServerInstances map[string]*ServerInstance
 	Commands        map[string]*Command
-	botConfig       *BotConfiguration
-	db              *sql.DB
+	BotConfig       *BotConfiguration
+	handlers        handlers
+	Db              *sql.DB
 	sync.RWMutex
 }
 
@@ -61,16 +68,63 @@ type musicOpts struct {
 	sync.RWMutex
 }
 
+type serverFeatures struct {
+	linkRemoval        bool
+	music              bool
+	customCommands     bool
+	diceRoll           bool
+	throttleCommands   bool
+	welcomeMessage     bool
+	moderationMuteRole bool
+	notifyMeRole       bool
+}
+
+type rolePermission struct {
+	roleID                string
+	postLinks             bool
+	moderationMuteMember  bool
+	rollDice              bool
+	flipCoin              bool
+	randomImage           bool
+	useCustomCommand      bool
+	manageCustomCommand   bool
+	ignoreCommandThrottle bool
+	playSongs             bool
+	playLists             bool
+	skipSongs             bool
+}
+
+type setRolePermsAnswer struct {
+	PermissionName string
+	Permission     Permission
+	Value          bool
+	Answered       bool
+}
+
+type setRolePerms struct {
+	UserID                 string
+	RoleIDBeingSet         string
+	InProgress             bool
+	SortedPermissionsSlice []Permission
+	PermissionAnswers      map[Permission]*setRolePermsAnswer
+	Timeout                time.Time
+	sync.RWMutex
+}
+
 type ServerInstance struct {
-	Guild         *discordgo.Guild
-	Session       *discordgo.Session
-	Log           *logrus.Logger
-	Configuration *models.DiscordServer
-	MusicData     *musicOpts
-	Ctx           context.Context
-	CtxCancel     context.CancelFunc
-	db            *sql.DB
-	httpClient    *http.Client
+	GuildID             string
+	Session             *discordgo.Session
+	Log                 *logrus.Logger
+	Configuration       *models.DiscordServer
+	MusicData           *musicOpts
+	Ctx                 context.Context
+	CtxCancel           context.CancelFunc
+	enabledFeatures     serverFeatures
+	rolePermissions     map[string]rolePermission
+	CommandSetRolePerms *setRolePerms
+	Db                  *sql.DB
+	HttpClient          *http.Client
+	CustomCommands      map[string]string
 	sync.RWMutex
 }
 
@@ -94,7 +148,7 @@ func connectDB(config *BotConfiguration) *sql.DB {
 	return db
 }
 
-func NewInstance() (*shardInstance, error) {
+func NewInstance() (*ShardInstance, error) {
 	rand.Seed(time.Now().UTC().UnixNano())
 	d, err := os.Getwd()
 	if err != nil {
@@ -102,14 +156,19 @@ func NewInstance() (*shardInstance, error) {
 	}
 	botConfig := getBotConfiguration()
 	db := connectDB(botConfig)
-	return &shardInstance{
-		closeSignal:     make(chan os.Signal, 1),
-		directory:       d,
-		botConfig:       botConfig,
-		log:             setupLog(),
-		db:              db,
+	return &ShardInstance{
+		CloseSignal: make(chan os.Signal, 1),
+		directory:   d,
+		BotConfig:   botConfig,
+		Log:         setupLog(),
+		Db:          db,
+		handlers: handlers{
+			guildCreate:    &guildCreate{},
+			guildMemberAdd: &guildMemberAdd{},
+			messageCreate:  &messageCreate{},
+		},
 		Commands:        make(map[string]*Command),
-		serverInstances: make(map[string]*ServerInstance),
+		ServerInstances: make(map[string]*ServerInstance),
 	}, nil
 }
 
@@ -130,9 +189,9 @@ func getBotConfiguration() *BotConfiguration {
 	return &newConfig
 }
 
-func (s *shardInstance) gracefulShutdown() {
+func (s *ShardInstance) gracefulShutdown() {
 	s.RLock()
-	for _, serverInstance := range s.serverInstances {
+	for _, serverInstance := range s.ServerInstances {
 		serverInstance.Session.Lock()
 		if len(serverInstance.Session.VoiceConnections) > 0 {
 			for _, vc := range serverInstance.Session.VoiceConnections {
@@ -142,27 +201,28 @@ func (s *shardInstance) gracefulShutdown() {
 		serverInstance.Session.Unlock()
 		err := serverInstance.Session.Close()
 		if err != nil {
-			s.log.WithError(err).Error("Unable to close bot session.")
+			s.Log.WithError(err).Error("Unable to close bot session.")
 		}
 	}
 	s.RUnlock()
 }
 
-func (s *shardInstance) Start() {
-	signal.Notify(s.closeSignal, os.Interrupt, os.Kill, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+func (s *ShardInstance) Start() {
+	signal.Notify(s.CloseSignal, os.Interrupt, os.Kill, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 	// Create a new Discord session using the provided bot token.
-	dg, err := discordgo.New("Bot " + s.botConfig.BotToken)
+	dg, err := discordgo.New("Bot " + s.BotConfig.BotToken)
 	if err != nil {
 		fmt.Println("error creating Discord session,", err)
 		return
 	}
 
-	s.registerBuiltInCommands()
+	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsAllWithoutPrivileged | discordgo.IntentsGuildMembers)
 
 	// Register messageCreate as a callback for the messageCreate events.
 	dg.AddHandler(s.messageCreate)
 	dg.AddHandler(s.guildCreate)
 	dg.AddHandler(s.guildMemberAdd)
+	dg.AddHandler(s.guildMemberUpdate)
 
 	// Open the websocket and begin listening.
 	err = dg.Open()
@@ -173,6 +233,6 @@ func (s *shardInstance) Start() {
 
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
 	// Simple way to keep program running until CTRL-C is pressed.
-	<-s.closeSignal
+	<-s.CloseSignal
 	s.gracefulShutdown()
 }
