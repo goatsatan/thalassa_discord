@@ -25,6 +25,55 @@ const (
 	PermissionOwner
 )
 
+var AllPermissions = []Permission{
+	PermissionPostLinks,
+	PermissionModerationMuteMember,
+	PermissionRollDice,
+	PermissionFlipCoin,
+	PermissionRandomImage,
+	PermissionUseCustomCommand,
+	PermissionManageCustomCommand,
+	PermissionIgnoreCommandThrottle,
+	PermissionPlaySongs,
+	PermissionPlayLists,
+	PermissionSkipSongs,
+	PermissionAdministrator,
+	PermissionOwner,
+}
+
+func (p Permission) FriendlyName() string {
+	switch p {
+	case PermissionPostLinks:
+		return "Post Links"
+	case PermissionModerationMuteMember:
+		return "Moderation Mute Member"
+	case PermissionRollDice:
+		return "Roll Dice"
+	case PermissionFlipCoin:
+		return "Flip Coin"
+	case PermissionRandomImage:
+		return "Random Image"
+	case PermissionUseCustomCommand:
+		return "Use Custom Command"
+	case PermissionManageCustomCommand:
+		return "Manage Custom Command"
+	case PermissionIgnoreCommandThrottle:
+		return "Ignore Command Throttle"
+	case PermissionPlaySongs:
+		return "Play Songs"
+	case PermissionPlayLists:
+		return "Play Lists"
+	case PermissionSkipSongs:
+		return "Skip Songs"
+	case PermissionAdministrator:
+		return "Administrator"
+	case PermissionOwner:
+		return "Owner"
+	default:
+		return "Unknown"
+	}
+}
+
 func (s *ShardInstance) parseMessageForCommand(message *discordgo.Message, instance *ServerInstance,
 ) (foundCommand bool, command string, arguments []string) {
 	if len(message.Content) > 0 {

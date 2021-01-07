@@ -22,7 +22,7 @@ func RegisterCommands(s *discord.ShardInstance) {
 		RequiredPermissions: nil,
 	})
 	// s.RegisterCommand(discord.Command{
-	// 	Name:                "example3",
+	// 	FriendlyName:                "example3",
 	// 	HelpText:            "This is just an example command",
 	// 	Execute: func(instance *discord.ServerInstance, message *discordgo.Message, strings []string) {
 	// 		// Example

@@ -94,19 +94,37 @@ type rolePermission struct {
 	skipSongs             bool
 }
 
+type setRolePermsAnswer struct {
+	PermissionName string
+	Permission     Permission
+	Value          bool
+	Answered       bool
+}
+
+type setRolePerms struct {
+	UserID                 string
+	RoleIDBeingSet         string
+	InProgress             bool
+	SortedPermissionsSlice []Permission
+	PermissionAnswers      map[Permission]*setRolePermsAnswer
+	Timeout                time.Time
+	sync.RWMutex
+}
+
 type ServerInstance struct {
-	GuildID         string
-	Session         *discordgo.Session
-	Log             *logrus.Logger
-	Configuration   *models.DiscordServer
-	MusicData       *musicOpts
-	Ctx             context.Context
-	CtxCancel       context.CancelFunc
-	enabledFeatures serverFeatures
-	rolePermissions map[string]rolePermission
-	Db              *sql.DB
-	HttpClient      *http.Client
-	CustomCommands  map[string]string
+	GuildID             string
+	Session             *discordgo.Session
+	Log                 *logrus.Logger
+	Configuration       *models.DiscordServer
+	MusicData           *musicOpts
+	Ctx                 context.Context
+	CtxCancel           context.CancelFunc
+	enabledFeatures     serverFeatures
+	rolePermissions     map[string]rolePermission
+	CommandSetRolePerms *setRolePerms
+	Db                  *sql.DB
+	HttpClient          *http.Client
+	CustomCommands      map[string]string
 	sync.RWMutex
 }
 

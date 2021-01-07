@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -157,7 +158,7 @@ func (*guildCreate) createDiscordGuildInstance(logger *logrus.Logger, db *sql.DB
 
 	customCommands, err := models.CustomCommands(qm.Where("guild_id = ?", guildCreate.ID)).All(context.TODO(), db)
 	if err != nil {
-		logger.WithError(err).WithField("Guild Name", guildCreate.Name).Error("Unable to load custom commands.")
+		logger.WithError(err).WithField("Guild FriendlyName", guildCreate.Name).Error("Unable to load custom commands.")
 	}
 
 	customCommandsMap := make(map[string]string)
@@ -193,6 +194,19 @@ func (*guildCreate) createDiscordGuildInstance(logger *logrus.Logger, db *sql.DB
 		rolePermissions[permission.RoleID] = r
 	}
 
+	setRolePermsMap := make(map[Permission]*setRolePermsAnswer)
+	for _, p := range AllPermissions {
+		setRolePermsMap[p] = &setRolePermsAnswer{
+			PermissionName: p.FriendlyName(),
+			Permission:     p,
+			Answered:       false,
+		}
+	}
+	sortedPermissions := AllPermissions
+	sort.Slice(sortedPermissions, func(i, j int) bool {
+		return sortedPermissions[i].FriendlyName() < sortedPermissions[j].FriendlyName()
+	})
+
 	newInstance := &ServerInstance{
 		GuildID:       guildCreate.Guild.ID,
 		Session:       dSession,
@@ -223,11 +237,21 @@ func (*guildCreate) createDiscordGuildInstance(logger *logrus.Logger, db *sql.DB
 			SkipAllCtxCancel:    skipAllCtxCancel,
 			RWMutex:             sync.RWMutex{},
 		},
+		CommandSetRolePerms: &setRolePerms{
+			UserID:                 "",
+			RoleIDBeingSet:         "",
+			InProgress:             false,
+			SortedPermissionsSlice: sortedPermissions,
+			PermissionAnswers:      setRolePermsMap,
+			Timeout:                time.Time{},
+			RWMutex:                sync.RWMutex{},
+		},
 		CustomCommands: customCommandsMap,
 		HttpClient: &http.Client{
 			Timeout: time.Second * 30,
 		},
 	}
+
 	return newInstance
 }
 
@@ -243,3 +267,54 @@ func (*guildCreate) handleNotifyRole(serverInstance *ServerInstance) {
 		_, _ = serverInstance.GetOrCreateNotifyRole()
 	}
 }
+
+// func (*messageCreate) checkForRolePermsSet(serverInstance *ServerInstance, message *discordgo.MessageCreate) {
+// 	serverInstance.CommandSetRolePerms.RLock()
+// 	setRolePermsInProgress := serverInstance.CommandSetRolePerms.InProgress
+// 	serverInstance.CommandSetRolePerms.RUnlock()
+//
+// 	if setRolePermsInProgress {
+// 		serverInstance.CommandSetRolePerms.RLock()
+// 		permissionsUserID := serverInstance.CommandSetRolePerms.UserID
+// 		serverInstance.CommandSetRolePerms.RUnlock()
+// 		if message.Author.ID == permissionsUserID {
+// 			if strings.ToLower(message.Content) != "true" && strings.ToLower(message.Content) != "false" {
+// 				return
+// 			}
+//
+// 			answer := false
+// 			if strings.ToLower(message.Content) == "true" {
+// 				answer = true
+// 			}
+//
+// 			var currentQuestion *setRolePermsAnswer
+// 			currentSortedQuestionIndex := 0
+// 			for idx, p := range serverInstance.CommandSetRolePerms.SortedPermissionsSlice {
+// 				if !serverInstance.CommandSetRolePerms.PermissionAnswers[p].Answered {
+// 					currentQuestion = serverInstance.CommandSetRolePerms.PermissionAnswers[p]
+// 					currentSortedQuestionIndex = idx
+// 					break
+// 				}
+// 			}
+//
+// 			if currentQuestion == nil {
+// 				serverInstance.CommandSetRolePerms.InProgress = false
+// 				_, _ = serverInstance.Session.ChannelMessageSend(message.ChannelID, "Finished permissions. 1")
+//
+// 			} else {
+// 				currentQuestion.Answered = true
+// 				currentQuestion.Value = answer
+// 				nextQuestionIndex := currentSortedQuestionIndex + 1
+// 				if nextQuestionIndex < len(serverInstance.CommandSetRolePerms.SortedPermissionsSlice) {
+// 					_, _ = serverInstance.Session.ChannelMessageSend(message.ChannelID,
+// 						serverInstance.CommandSetRolePerms.PermissionAnswers[serverInstance.CommandSetRolePerms.SortedPermissionsSlice[nextQuestionIndex]].PermissionName)
+// 				} else {
+// 					// All permissions answered.
+// 					serverInstance.CommandSetRolePerms.InProgress = false
+// 					_, _ = serverInstance.Session.ChannelMessageSend(message.ChannelID, "Finished permissions. 2")
+// 				}
+// 			}
+//
+// 		}
+// 	}
+// }

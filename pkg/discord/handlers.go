@@ -56,6 +56,8 @@ func (s *ShardInstance) messageCreate(dSession *discordgo.Session, messageCreate
 	serverInstance, _ := s.ServerInstances[messageCreate.GuildID]
 	s.RUnlock()
 
+	// s.handlers.messageCreate.checkForRolePermsSet(serverInstance, messageCreate)
+
 	commandFound, commandName, args := s.parseMessageForCommand(messageCreate.Message, serverInstance)
 	if commandFound {
 		// Custom commands can override built-in commands.

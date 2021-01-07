@@ -33,18 +33,12 @@ const (
 )
 
 // TODO
-// Finish muted
 // Add context to music. Deadline and cancel
 // Add web portal to configure bot
-// Add notify group that is opt-in
 // Add channel clean up
 // Add channel clean up per user
-// Add dice roll
-// Add coin flip
 // Add custom middleware to read all messages for keywords and auto respond
-// Disconnect muted members from voice chat so the mute refreshes
-// Check new member joins to see if they are muted
-// Allow creating custom commands from Discord instead of just web.
+// Add expiration to muted users
 
 // Command is the basic structure for every built-in and add-on command for the bot. It takes a name
 // (this is used with the prefix to run the command). Help text is displayed if the user requests help for that command.

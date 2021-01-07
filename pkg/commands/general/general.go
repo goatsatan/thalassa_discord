@@ -1,7 +1,10 @@
 package general
 
 import (
+	"fmt"
+	"math/rand"
 	"sort"
+	"time"
 
 	"thalassa_discord/pkg/discord"
 
@@ -57,10 +60,6 @@ func RegisterCommands(s *discord.ShardInstance) {
 						Inline: false,
 					}
 
-					// if i % 3 == 0 {
-					// 	newField.Inline = false
-					// }
-
 					fields = append(fields, newField)
 
 				}
@@ -71,14 +70,67 @@ func RegisterCommands(s *discord.ShardInstance) {
 			for _, embed := range embeds {
 				instance.SendEmbedMessage(embed, message.ChannelID, "Unable to send commands embed.")
 			}
-
-			// for z, chunk := range embedChunks {
-			// 	s.Log.Debugf("Size of embed chunk %d: %d", z, len(chunk))
-			// 	for _, c := range chunk {
-			// 		s.Log.Debugf("Command in chunk %d: %s", z, c.Name)
-			// 	}
-			// }
 		},
 		RequiredPermissions: nil,
 	})
+	s.RegisterCommand(discord.Command{
+		Name:                "8ball",
+		HelpText:            "8ball gives you a response to your question.",
+		Execute:             eightBall,
+		RequiredPermissions: nil,
+	})
+	s.RegisterCommand(discord.Command{
+		Name:                "flipcoin",
+		HelpText:            "Flips a coin and gives you heads or tails.",
+		Execute:             flipCoin,
+		RequiredPermissions: []discord.Permission{discord.PermissionFlipCoin},
+	})
+	s.RegisterCommand(discord.Command{
+		Name:                "rolldice",
+		HelpText:            "Rolls two dice and gives you the sum.",
+		Execute:             rollDice,
+		RequiredPermissions: []discord.Permission{discord.PermissionRollDice},
+	})
+}
+
+func eightBall(instance *discord.ServerInstance, message *discordgo.Message, args []string) {
+	rand.Seed(time.Now().Unix())
+	possibleResponses := []string{
+		"Don’t count on it", "Outlook not so good", "My sources say no", "Very doubtful", "My reply is no", "It is certain",
+		"Without a doubt", "You may rely on it", "Yes definitely", "It is decidedly so", "As I see it, yes", "Most likely",
+		"Yes", "Outlook good", "Signs point to yes", "Reply hazy try again", "Better not tell you now", "Ask again later",
+		"Cannot predict now", "Concentrate and ask again",
+	}
+
+	response := possibleResponses[rand.Intn(len(possibleResponses))]
+
+	_, err := instance.Session.ChannelMessageSend(message.ChannelID,
+		fmt.Sprintf("%s %s.", message.Author.Mention(), response))
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to send channel message for 8ball.")
+	}
+}
+
+func flipCoin(instance *discord.ServerInstance, message *discordgo.Message, args []string) {
+	rand.Seed(time.Now().Unix())
+	results := []string{
+		"Tails",
+		"Heads",
+	}
+	result := results[rand.Intn(len(results))]
+	_, err := instance.Session.ChannelMessageSend(message.ChannelID,
+		fmt.Sprintf("%s Flipped a coin and it landed on: %s", message.Author.Mention(), result))
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to send channel message for flip coin.")
+	}
+}
+
+func rollDice(instance *discord.ServerInstance, message *discordgo.Message, args []string) {
+	rand.Seed(time.Now().Unix())
+	result := rand.Intn(11) + 2
+	_, err := instance.Session.ChannelMessageSend(message.ChannelID,
+		fmt.Sprintf("%s Rolled two dice for a total of: %d out of 12", message.Author.Mention(), result))
+	if err != nil {
+		instance.Log.WithError(err).Error("Unable to send channel message for flip coin.")
+	}
 }

@@ -47,4 +47,22 @@ func RegisterCommands(s *discord.ShardInstance) {
 			Execute:             deleteCustomCommand,
 			RequiredPermissions: []discord.Permission{discord.PermissionManageCustomCommand},
 		})
+	// s.RegisterCommand(
+	// 	discord.Command{
+	// 		Name:                "sp",
+	// 		HelpText:            "This will delete a custom command. You must provide the name.",
+	// 		Execute: func(instance *discord.ServerInstance, message *discordgo.Message, args []string) {
+	// 			if len(args) > 0 {
+	// 				roleID := args[0]
+	// 				_, _ = instance.Session.ChannelMessageSend(message.ChannelID, "Setting permissions for " + roleID)
+	// 				instance.CommandSetRolePerms.InProgress = true
+	// 				instance.CommandSetRolePerms.RoleIDBeingSet = roleID
+	// 				instance.CommandSetRolePerms.UserID = message.Author.ID
+	//
+	// 				_, _ = instance.Session.ChannelMessageSend(message.ChannelID,
+	// 					instance.CommandSetRolePerms.PermissionAnswers[instance.CommandSetRolePerms.SortedPermissionsSlice[0]].PermissionName)
+	// 			}
+	// 		},
+	// 		RequiredPermissions: []discord.Permission{discord.PermissionManageCustomCommand},
+	// 	})
 }
