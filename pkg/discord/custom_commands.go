@@ -19,6 +19,10 @@ func (s *ShardInstance) handleCustomCommand(commandName string, args []string, m
 		} else {
 			msg = customCommand
 		}
+		if strings.Contains(msg, `\n`) {
+			msg = strings.ReplaceAll(msg, `\n`, `
+`)
+		}
 		_, err := instance.Session.ChannelMessageSend(message.ChannelID, msg)
 		if err != nil {
 			s.Log.WithError(err).Error("Unable to send custom command message.")
