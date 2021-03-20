@@ -69,7 +69,7 @@ type Song struct {
 	PlaylistIndex      interface{}            `json:"playlist_index"`
 	AltTitle           interface{}            `json:"alt_title"`
 	License            interface{}            `json:"license"`
-	Abr                int                    `json:"abr"`
+	Abr                float64                `json:"abr"`
 	Extractor          string                 `json:"extractor"`
 	Duration           int                    `json:"duration"`
 	StartTime          interface{}            `json:"start_time"`
@@ -97,51 +97,52 @@ type SongHTTPHeaders struct {
 	AcceptCharset  string `json:"Accept-Charset"`
 }
 type SongFormats struct {
+	Fps               interface{}           `json:"fps"`
+	Abr               float64               `json:"abr,omitempty"`
 	Quality           int                   `json:"quality"`
-	FormatID          string                `json:"format_id"`
-	DownloaderOptions SongDownloaderOptions `json:"downloader_options,omitempty"`
-	Abr               int                   `json:"abr,omitempty"`
-	PlayerURL         string                `json:"player_url"`
-	Filesize          int                   `json:"filesize,omitempty"`
-	URL               string                `json:"url"`
-	Ext               string                `json:"ext"`
 	FormatNote        string                `json:"format_note"`
-	Protocol          string                `json:"protocol"`
 	Format            string                `json:"format"`
-	HTTPHeaders       SongHTTPHeaders       `json:"http_headers"`
-	Acodec            string                `json:"acodec"`
+	DownloaderOptions SongDownloaderOptions `json:"downloader_options,omitempty"`
 	Vcodec            string                `json:"vcodec"`
-	Tbr               float64               `json:"tbr,omitempty"`
+	Acodec            string                `json:"acodec"`
+	URL               string                `json:"url"`
+	Protocol          string                `json:"protocol"`
+	Filesize          int                   `json:"filesize"`
+	Asr               int                   `json:"asr"`
+	HTTPHeaders       SongHTTPHeaders       `json:"http_headers"`
 	Container         string                `json:"container,omitempty"`
-	Height            int                   `json:"height,omitempty"`
-	Width             int                   `json:"width,omitempty"`
-	Fps               float64               `json:"fps,omitempty"`
-	Resolution        string                `json:"resolution,omitempty"`
+	FormatID          string                `json:"format_id"`
+	Ext               string                `json:"ext"`
+	Height            interface{}           `json:"height"`
+	Tbr               float64               `json:"tbr"`
+	Width             interface{}           `json:"width"`
+	Vbr               float64               `json:"vbr,omitempty"`
 }
 type SongSubtitles struct {
 }
 type SongAutomaticCaptions struct {
 }
 type SongRequestedFormats struct {
+	Fps               int                   `json:"fps"`
 	Quality           int                   `json:"quality"`
-	FormatID          string                `json:"format_id"`
-	DownloaderOptions SongDownloaderOptions `json:"downloader_options"`
-	PlayerURL         string                `json:"player_url"`
-	Filesize          int                   `json:"filesize"`
-	URL               string                `json:"url"`
-	Height            int                   `json:"height,omitempty"`
-	Ext               string                `json:"ext"`
-	Width             int                   `json:"width,omitempty"`
 	FormatNote        string                `json:"format_note"`
-	Protocol          string                `json:"protocol"`
-	Format            string                `json:"format"`
-	HTTPHeaders       SongHTTPHeaders       `json:"http_headers"`
-	Acodec            string                `json:"acodec"`
 	Vcodec            string                `json:"vcodec"`
+	DownloaderOptions SongDownloaderOptions `json:"downloader_options"`
+	Format            string                `json:"format"`
+	Acodec            string                `json:"acodec"`
+	Vbr               float64               `json:"vbr,omitempty"`
+	URL               string                `json:"url"`
+	Protocol          string                `json:"protocol"`
+	Filesize          int                   `json:"filesize"`
+	Asr               interface{}           `json:"asr"`
+	HTTPHeaders       SongHTTPHeaders       `json:"http_headers"`
+	Container         string                `json:"container"`
+	FormatID          string                `json:"format_id"`
+	Ext               string                `json:"ext"`
+	Height            int                   `json:"height"`
 	Tbr               float64               `json:"tbr"`
-	Fps               float64               `json:"fps,omitempty"`
-	Abr               int                   `json:"abr,omitempty"`
-	Container         string                `json:"container,omitempty"`
+	Width             int                   `json:"width"`
+	Abr               float64               `json:"abr,omitempty"`
 }
 type SongChapters struct {
 	EndTime   float64 `json:"end_time"`
@@ -170,7 +171,24 @@ type PlaylistEntries struct {
 	URL   string `json:"url"`
 }
 
+// handleSongProcessCleanup will wait for a process to end so it can be cleaned up. Will cancel error checking if
+// passed context is cancelled. Will log an error with your message if there's an error without context being
+// cancelled.
+func handleSongProcessCleanup(ctx context.Context, c *exec.Cmd, log *logrus.Logger, errorMessage string) {
+	select {
+	case <-ctx.Done():
+		// Song was skipped or we're shutting down so the exit code will be 1 and return an error no matter what.
+		_ = c.Wait()
+	default:
+		err := c.Wait()
+		if err != nil {
+			log.WithError(err).Error(errorMessage)
+		}
+	}
+}
+
 func StreamSong(ctx context.Context, link string, log *logrus.Logger, vc *discordgo.VoiceConnection, volume float32) {
+	// TODO remove log.fatal
 	cmd := exec.CommandContext(ctx, "youtube-dl", "--no-progress", "--no-call-home", "--default-search", "ytsearch", "--no-playlist", "--no-mtime", "-o", "-", "--format", "bestaudio/worstvideo/best", "--prefer-ffmpeg", "--quiet", link)
 	run := exec.CommandContext(ctx, "ffmpeg", "-i", "-", "-vn", "-acodec", "pcm_s16le", "-f", "s16le", "-ar", "48000", "-af", fmt.Sprintf("volume=%f", volume), "-ac", "2", "pipe:1")
 	ytdl, err := cmd.StdoutPipe()
@@ -185,11 +203,17 @@ func StreamSong(ctx context.Context, link string, log *logrus.Logger, vc *discor
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Cleanup process after the process ends.
+	defer handleSongProcessCleanup(ctx, cmd, log, "Unable to close ffmpeg process.")
+
 	// run.Stderr = os.Stderr
 	err = run.Start()
 	if err != nil {
 		log.Fatal(err)
 	}
+	// Cleanup process after the process ends.
+	defer handleSongProcessCleanup(ctx, run, log, "Unable to close ffmpeg process.")
+
 	ffmpegbuf := bufio.NewReaderSize(ffmpegout, 16384)
 	err = vc.Speaking(true)
 	if err != nil {
