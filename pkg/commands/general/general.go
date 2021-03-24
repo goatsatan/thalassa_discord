@@ -91,6 +91,12 @@ func RegisterCommands(s *discord.ShardInstance) {
 		Execute:             rollDice,
 		RequiredPermissions: []discord.Permission{discord.PermissionRollDice},
 	})
+	s.RegisterCommand(discord.Command{
+		Name:                "ascii",
+		HelpText:            "Creates ascii art based on the image URL provided.",
+		Execute:             generateAsciiArtFromImageURL,
+		RequiredPermissions: nil,
+	})
 }
 
 func eightBall(instance *discord.ServerInstance, message *discordgo.Message, args []string) {

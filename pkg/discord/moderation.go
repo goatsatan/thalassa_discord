@@ -105,7 +105,8 @@ func (serverInstance *ServerInstance) addMutedRoleToChannel(channel *discordgo.C
 		}
 	}
 	if !foundMutedOverwrite {
-		err := serverInstance.Session.ChannelPermissionSet(channel.ID, mutedRoleID, "role", 0, 2553920)
+		err := serverInstance.Session.ChannelPermissionSet(channel.ID, mutedRoleID,
+			discordgo.PermissionOverwriteTypeRole, 0, 2553920)
 		if err != nil {
 			serverInstance.Log.WithFields(logrus.Fields{
 				"Guild":   serverInstance.GuildID,
