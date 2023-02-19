@@ -30,65 +30,94 @@ type PlaylistSong struct {
 }
 
 type Song struct {
-	EndTime            interface{}            `json:"end_time"`
-	UploaderURL        string                 `json:"uploader_url"`
-	ViewCount          interface{}            `json:"view_count"`
-	DislikeCount       int                    `json:"dislike_count"`
-	Format             string                 `json:"format"`
-	Categories         []string               `json:"categories"`
-	Height             int                    `json:"height"`
-	Ext                string                 `json:"ext"`
-	UploaderID         string                 `json:"uploader_id"`
-	Formats            []SongFormats          `json:"formats"`
-	Acodec             string                 `json:"acodec"`
-	Subtitles          SongSubtitles          `json:"subtitles"`
-	AutomaticCaptions  SongAutomaticCaptions  `json:"automatic_captions"`
-	AgeLimit           int                    `json:"age_limit"`
-	Uploader           string                 `json:"uploader"`
-	ExtractorKey       string                 `json:"extractor_key"`
-	Annotations        interface{}            `json:"annotations"`
-	RequestedFormats   []SongRequestedFormats `json:"requested_formats"`
-	EpisodeNumber      interface{}            `json:"episode_number"`
-	Fps                float64                `json:"fps"`
-	FormatID           string                 `json:"format_id"`
-	Series             interface{}            `json:"series"`
-	StretchedRatio     interface{}            `json:"stretched_ratio"`
-	DisplayID          string                 `json:"display_id"`
-	LikeCount          int                    `json:"like_count"`
-	Tags               []string               `json:"tags"`
-	IsLive             interface{}            `json:"is_live"`
-	Creator            interface{}            `json:"creator"`
-	WebpageURL         string                 `json:"webpage_url"`
-	Resolution         interface{}            `json:"resolution"`
-	Description        string                 `json:"description"`
-	UploadDate         string                 `json:"upload_date"`
-	Chapters           []SongChapters         `json:"chapters"`
-	ID                 string                 `json:"id"`
-	Width              int                    `json:"width"`
-	Vcodec             string                 `json:"vcodec"`
-	PlaylistIndex      interface{}            `json:"playlist_index"`
-	AltTitle           interface{}            `json:"alt_title"`
-	License            interface{}            `json:"license"`
-	Abr                float64                `json:"abr"`
-	Extractor          string                 `json:"extractor"`
-	Duration           int                    `json:"duration"`
-	StartTime          interface{}            `json:"start_time"`
-	Thumbnail          string                 `json:"thumbnail"`
-	Vbr                interface{}            `json:"vbr"`
-	SeasonNumber       interface{}            `json:"season_number"`
-	Title              string                 `json:"title"`
-	RequestedSubtitles interface{}            `json:"requested_subtitles"`
-	WebpageURLBasename string                 `json:"webpage_url_basename"`
-	Track              interface{}            `json:"track"`
-	Artist             interface{}            `json:"artist"`
-	Album              interface{}            `json:"album"`
-	Thumbnails         []SongThumbnails       `json:"thumbnails"`
-	AverageRating      interface{}            `json:"average_rating"`
-	Playlist           interface{}            `json:"playlist"`
+	Abr                  float64                `json:"abr"`
+	Acodec               string                 `json:"acodec"`
+	AgeLimit             int                    `json:"age_limit"`
+	Album                interface{}            `json:"album"`
+	Artist               interface{}            `json:"artist"`
+	AspectRatio          float64                `json:"aspect_ratio"`
+	Asr                  int                    `json:"asr"`
+	AudioChannels        int                    `json:"audio_channels"`
+	AutomaticCaptions    SongAutomaticCaptions  `json:"automatic_captions"`
+	Availability         string                 `json:"availability"`
+	AverageRating        interface{}            `json:"average_rating"`
+	Categories           []string               `json:"categories"`
+	Channel              string                 `json:"channel"`
+	ChannelFollowerCount int                    `json:"channel_follower_count"`
+	ChannelID            string                 `json:"channel_id"`
+	ChannelURL           string                 `json:"channel_url"`
+	Chapters             interface{}            `json:"chapters"`
+	CommentCount         interface{}            `json:"comment_count"`
+	Description          string                 `json:"description"`
+	DisplayID            string                 `json:"display_id"`
+	Duration             int                    `json:"duration"`
+	DurationString       string                 `json:"duration_string"`
+	DynamicRange         string                 `json:"dynamic_range"`
+	Epoch                int                    `json:"epoch"`
+	Ext                  string                 `json:"ext"`
+	Extractor            string                 `json:"extractor"`
+	ExtractorKey         string                 `json:"extractor_key"`
+	Filename             string                 `json:"filename"`
+	FilesizeApprox       int                    `json:"filesize_approx"`
+	Format               string                 `json:"format"`
+	FormatID             string                 `json:"format_id"`
+	FormatNote           string                 `json:"format_note"`
+	FormatSortFields     []string               `json:"_format_sort_fields"`
+	Formats              []SongFormats          `json:"formats"`
+	Fps                  int                    `json:"fps"`
+	Fulltitle            string                 `json:"fulltitle"`
+	HasDrm               interface{}            `json:"_has_drm"`
+	Height               int                    `json:"height"`
+	ID                   string                 `json:"id"`
+	IsLive               bool                   `json:"is_live"`
+	Language             interface{}            `json:"language"`
+	LikeCount            int                    `json:"like_count"`
+	LiveStatus           string                 `json:"live_status"`
+	OriginalURL          string                 `json:"original_url"`
+	PlayableInEmbed      bool                   `json:"playable_in_embed"`
+	Playlist             interface{}            `json:"playlist"`
+	PlaylistIndex        interface{}            `json:"playlist_index"`
+	Protocol             string                 `json:"protocol"`
+	ReleaseTimestamp     interface{}            `json:"release_timestamp"`
+	RequestedFormats     []SongRequestedFormats `json:"requested_formats"`
+	RequestedSubtitles   interface{}            `json:"requested_subtitles"`
+	Resolution           string                 `json:"resolution"`
+	StretchedRatio       interface{}            `json:"stretched_ratio"`
+	Subtitles            SongSubtitles          `json:"subtitles"`
+	Tags                 []interface{}          `json:"tags"`
+	Tbr                  float64                `json:"tbr"`
+	Thumbnail            string                 `json:"thumbnail"`
+	Thumbnails           []SongThumbnails       `json:"thumbnails"`
+	Title                string                 `json:"title"`
+	Track                interface{}            `json:"track"`
+	Type                 string                 `json:"_type"`
+	UploadDate           string                 `json:"upload_date"`
+	Uploader             string                 `json:"uploader"`
+	UploaderID           string                 `json:"uploader_id"`
+	UploaderURL          string                 `json:"uploader_url"`
+	Urls                 string                 `json:"urls"`
+	Vbr                  float64                `json:"vbr"`
+	Vcodec               string                 `json:"vcodec"`
+	Version              SongVersion            `json:"_version"`
+	ViewCount            int                    `json:"view_count"`
+	WasLive              bool                   `json:"was_live"`
+	WebpageURL           string                 `json:"webpage_url"`
+	WebpageURLBasename   string                 `json:"webpage_url_basename"`
+	WebpageURLDomain     string                 `json:"webpage_url_domain"`
+	Width                int                    `json:"width"`
 }
+
+type SongVersion struct {
+	Version        string      `json:"version"`
+	CurrentGitHead interface{} `json:"current_git_head"`
+	ReleaseGitHead string      `json:"release_git_head"`
+	Repository     string      `json:"repository"`
+}
+
 type SongDownloaderOptions struct {
 	HTTPChunkSize int `json:"http_chunk_size"`
 }
+
 type SongHTTPHeaders struct {
 	Accept         string `json:"Accept"`
 	AcceptEncoding string `json:"Accept-Encoding"`
@@ -96,62 +125,103 @@ type SongHTTPHeaders struct {
 	UserAgent      string `json:"User-Agent"`
 	AcceptCharset  string `json:"Accept-Charset"`
 }
+
 type SongFormats struct {
-	Fps               interface{}           `json:"fps"`
-	Abr               float64               `json:"abr,omitempty"`
-	Quality           int                   `json:"quality"`
-	FormatNote        string                `json:"format_note"`
-	Format            string                `json:"format"`
-	DownloaderOptions SongDownloaderOptions `json:"downloader_options,omitempty"`
-	Vcodec            string                `json:"vcodec"`
-	Acodec            string                `json:"acodec"`
-	URL               string                `json:"url"`
-	Protocol          string                `json:"protocol"`
-	Filesize          int                   `json:"filesize"`
-	Asr               int                   `json:"asr"`
-	HTTPHeaders       SongHTTPHeaders       `json:"http_headers"`
-	Container         string                `json:"container,omitempty"`
-	FormatID          string                `json:"format_id"`
-	Ext               string                `json:"ext"`
-	Height            interface{}           `json:"height"`
-	Tbr               float64               `json:"tbr"`
-	Width             interface{}           `json:"width"`
-	Vbr               float64               `json:"vbr,omitempty"`
+	Abr                float64               `json:"abr,omitempty"`
+	Acodec             string                `json:"acodec"`
+	AspectRatio        float64               `json:"aspect_ratio"`
+	Asr                int                   `json:"asr,omitempty"`
+	AudioChannels      int                   `json:"audio_channels,omitempty"`
+	AudioExt           string                `json:"audio_ext"`
+	Columns            int                   `json:"columns,omitempty"`
+	Container          string                `json:"container,omitempty"`
+	DownloaderOptions  SongDownloaderOptions `json:"downloader_options,omitempty"`
+	DynamicRange       interface{}           `json:"dynamic_range,omitempty"`
+	Ext                string                `json:"ext"`
+	Filesize           int                   `json:"filesize,omitempty"`
+	FilesizeApprox     int                   `json:"filesize_approx,omitempty"`
+	Format             string                `json:"format"`
+	FormatID           string                `json:"format_id"`
+	FormatNote         string                `json:"format_note"`
+	Fps                float64               `json:"fps"`
+	Fragments          []SongFragments       `json:"fragments,omitempty"`
+	HTTPHeaders        SongHTTPHeaders       `json:"http_headers"`
+	HasDrm             bool                  `json:"has_drm,omitempty"`
+	Height             int                   `json:"height"`
+	Language           interface{}           `json:"language,omitempty"`
+	LanguagePreference int                   `json:"language_preference,omitempty"`
+	Preference         interface{}           `json:"preference,omitempty"`
+	Protocol           string                `json:"protocol"`
+	Quality            float64               `json:"quality,omitempty"`
+	Resolution         string                `json:"resolution"`
+	Rows               int                   `json:"rows,omitempty"`
+	SourcePreference   int                   `json:"source_preference,omitempty"`
+	Tbr                float64               `json:"tbr,omitempty"`
+	URL                string                `json:"url"`
+	Vbr                float64               `json:"vbr,omitempty"`
+	Vcodec             string                `json:"vcodec"`
+	VideoExt           string                `json:"video_ext"`
+	Width              int                   `json:"width"`
 }
+
+type SongFragments struct {
+	URL      string  `json:"url"`
+	Duration float64 `json:"duration"`
+}
+
 type SongSubtitles struct {
 }
+
 type SongAutomaticCaptions struct {
 }
+
 type SongRequestedFormats struct {
-	Fps               int                   `json:"fps"`
-	Quality           int                   `json:"quality"`
-	FormatNote        string                `json:"format_note"`
-	Vcodec            string                `json:"vcodec"`
-	DownloaderOptions SongDownloaderOptions `json:"downloader_options"`
-	Format            string                `json:"format"`
-	Acodec            string                `json:"acodec"`
-	Vbr               float64               `json:"vbr,omitempty"`
-	URL               string                `json:"url"`
-	Protocol          string                `json:"protocol"`
-	Filesize          int                   `json:"filesize"`
-	Asr               interface{}           `json:"asr"`
-	HTTPHeaders       SongHTTPHeaders       `json:"http_headers"`
-	Container         string                `json:"container"`
-	FormatID          string                `json:"format_id"`
-	Ext               string                `json:"ext"`
-	Height            int                   `json:"height"`
-	Tbr               float64               `json:"tbr"`
-	Width             int                   `json:"width"`
-	Abr               float64               `json:"abr,omitempty"`
+	Abr                float64               `json:"abr,omitempty"`
+	Acodec             string                `json:"acodec"`
+	AspectRatio        float64               `json:"aspect_ratio"`
+	Asr                interface{}           `json:"asr"`
+	AudioChannels      interface{}           `json:"audio_channels"`
+	AudioExt           string                `json:"audio_ext"`
+	Container          string                `json:"container"`
+	DownloaderOptions  SongDownloaderOptions `json:"downloader_options"`
+	DynamicRange       string                `json:"dynamic_range"`
+	Ext                string                `json:"ext"`
+	Filesize           int                   `json:"filesize"`
+	Format             string                `json:"format"`
+	FormatID           string                `json:"format_id"`
+	FormatNote         string                `json:"format_note"`
+	Fps                int                   `json:"fps"`
+	HTTPHeaders        SongHTTPHeaders       `json:"http_headers"`
+	HasDrm             bool                  `json:"has_drm"`
+	Height             int                   `json:"height"`
+	Language           interface{}           `json:"language"`
+	LanguagePreference int                   `json:"language_preference"`
+	Preference         interface{}           `json:"preference"`
+	Protocol           string                `json:"protocol"`
+	Quality            float64               `json:"quality"`
+	Resolution         string                `json:"resolution"`
+	SourcePreference   int                   `json:"source_preference"`
+	Tbr                float64               `json:"tbr"`
+	URL                string                `json:"url"`
+	Vbr                float64               `json:"vbr,omitempty"`
+	Vcodec             string                `json:"vcodec"`
+	VideoExt           string                `json:"video_ext"`
+	Width              int                   `json:"width"`
 }
+
 type SongChapters struct {
 	EndTime   float64 `json:"end_time"`
 	Title     string  `json:"title"`
 	StartTime float64 `json:"start_time"`
 }
+
 type SongThumbnails struct {
-	URL string `json:"url"`
-	ID  string `json:"id"`
+	Height     int    `json:"height,omitempty"`
+	ID         string `json:"id"`
+	Preference int    `json:"preference"`
+	Resolution string `json:"resolution,omitempty"`
+	URL        string `json:"url"`
+	Width      int    `json:"width,omitempty"`
 }
 
 type Playlist struct {
@@ -189,8 +259,11 @@ func handleSongProcessCleanup(ctx context.Context, c *exec.Cmd, log *logrus.Logg
 
 func StreamSong(ctx context.Context, link string, log *logrus.Logger, vc *discordgo.VoiceConnection, volume float32) {
 	// TODO remove log.fatal
-	cmd := exec.CommandContext(ctx, "youtube-dl", "--no-progress", "--no-call-home", "--default-search", "ytsearch", "--no-playlist", "--no-mtime", "-o", "-", "--format", "bestaudio/worstvideo/best", "--prefer-ffmpeg", "--quiet", link)
-	run := exec.CommandContext(ctx, "ffmpeg", "-i", "-", "-vn", "-acodec", "pcm_s16le", "-f", "s16le", "-ar", "48000", "-af", fmt.Sprintf("volume=%f", volume), "-ac", "2", "pipe:1")
+	cmd := exec.CommandContext(ctx, "yt-dlp", "--no-progress", "--no-call-home", "--default-search", "ytsearch",
+		"--no-playlist", "--no-mtime", "-o", "-", "--format", "bestaudio/worstvideo/best", "--prefer-ffmpeg", "--quiet",
+		link)
+	run := exec.CommandContext(ctx, "ffmpeg", "-i", "-", "-vn", "-acodec", "pcm_s16le", "-f", "s16le", "-ar", "48000",
+		"-af", fmt.Sprintf("volume=%f", volume), "-ac", "2", "pipe:1")
 	ytdl, err := cmd.StdoutPipe()
 	if err != nil {
 		fmt.Println(err)
@@ -266,7 +339,8 @@ func StreamSong(ctx context.Context, link string, log *logrus.Logger, vc *discor
 
 func GetSongInfo(ctx context.Context, url string) (*Song, error) {
 	song := &Song{}
-	cmd := exec.CommandContext(ctx, "youtube-dl", "--simulate", "--print-json", "--no-progress", "--no-call-home", "--default-search", "ytsearch", "--no-playlist", "--no-mtime", url)
+	cmd := exec.CommandContext(ctx, "yt-dlp", "--simulate", "--print-json", "--no-progress", "--no-call-home",
+		"--default-search", "ytsearch", "--no-playlist", "--no-mtime", url)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return song, err
@@ -279,7 +353,8 @@ func GetSongInfo(ctx context.Context, url string) (*Song, error) {
 }
 
 func GetPlaylistInfo(ctx context.Context, url string) ([]*PlaylistSong, error) {
-	cmd := exec.CommandContext(ctx, "youtube-dl", "--simulate", "--dump-json", "--no-progress", "--no-call-home", "--default-search", "ytsearch", "--flat-playlist", "--no-mtime", url)
+	cmd := exec.CommandContext(ctx, "yt-dlp", "--simulate", "--dump-json", "--no-progress", "--no-call-home",
+		"--default-search", "ytsearch", "--flat-playlist", "--no-mtime", url)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return nil, err

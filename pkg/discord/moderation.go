@@ -26,23 +26,22 @@ func (serverInstance *ServerInstance) GetOrCreateNotifyRole() (roleID string, er
 		}
 	}
 	if !foundNotifyRole {
-		newRole, err := serverInstance.Session.GuildRoleCreate(serverInstance.GuildID)
-		if err != nil {
-			serverInstance.Log.WithField("Guild", serverInstance.GuildID).WithError(err).Error("Unable to create notify role.")
-			return "", fmt.Errorf("unable to create notify role")
-		}
-		newRole, err = serverInstance.Session.GuildRoleEdit(
+		perms := int64(discordgo.PermissionReadMessageHistory | discordgo.PermissionViewChannel | discordgo.PermissionVoiceConnect)
+		mentionable := false
+		color := ORANGE
+		newRole, err := serverInstance.Session.GuildRoleCreate(
 			serverInstance.GuildID,
-			newRole.ID,
-			"Notify Me",
-			ORANGE,
-			false,
-			discordgo.PermissionReadMessageHistory|discordgo.PermissionViewChannel|discordgo.PermissionVoiceConnect,
-			false,
+			&discordgo.RoleParams{
+				Name:        "Notify Me",
+				Color:       &color,
+				Permissions: &perms,
+				Mentionable: &mentionable,
+			},
 		)
 		if err != nil {
-			serverInstance.Log.WithField("Guild", serverInstance.GuildID).WithError(err).Error("Unable to update notify role.")
-			return "", err
+			serverInstance.Log.WithField("Guild",
+				serverInstance.GuildID).WithError(err).Error("Unable to create notify role.")
+			return "", fmt.Errorf("unable to create notify role")
 		}
 		mutedRole = newRole
 	}
@@ -70,23 +69,22 @@ func (serverInstance *ServerInstance) GetOrCreateMutedRole() (roleID string, err
 		}
 	}
 	if !foundMutedRole {
-		newRole, err := serverInstance.Session.GuildRoleCreate(serverInstance.GuildID)
-		if err != nil {
-			serverInstance.Log.WithField("Guild", serverInstance.GuildID).WithError(err).Error("Unable to create muted role.")
-			return "", fmt.Errorf("unable to create muted role")
-		}
-		newRole, err = serverInstance.Session.GuildRoleEdit(
+		color := 12370112
+		perms := int64(discordgo.PermissionReadMessageHistory | discordgo.PermissionViewChannel | discordgo.PermissionVoiceConnect)
+		mentionable := false
+		newRole, err := serverInstance.Session.GuildRoleCreate(
 			serverInstance.GuildID,
-			newRole.ID,
-			"Muted",
-			12370112,
-			false,
-			discordgo.PermissionReadMessageHistory|discordgo.PermissionViewChannel|discordgo.PermissionVoiceConnect,
-			false,
+			&discordgo.RoleParams{
+				Name:        "Muted",
+				Color:       &color,
+				Permissions: &perms,
+				Mentionable: &mentionable,
+			},
 		)
 		if err != nil {
-			serverInstance.Log.WithField("Guild", serverInstance.GuildID).WithError(err).Error("Unable to update muted role.")
-			return "", err
+			serverInstance.Log.WithField("Guild",
+				serverInstance.GuildID).WithError(err).Error("Unable to create muted role.")
+			return "", fmt.Errorf("unable to create muted role")
 		}
 		mutedRole = newRole
 	}

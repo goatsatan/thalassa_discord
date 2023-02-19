@@ -19,3 +19,6 @@
 /config.toml
 /sqlboiler.toml
 .idea/*
+/docker-compose.yml
+
+dist/

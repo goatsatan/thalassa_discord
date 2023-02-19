@@ -21,6 +21,7 @@ func (s *ShardInstance) guildCreate(dSession *discordgo.Session, guildCreate *di
 
 	serverInfo, err := s.handlers.guildCreate.loadOrCreateDiscordGuildFromDatabase(s.Log, s.Db, guildCreate)
 	if err != nil {
+		s.Log.Error(err)
 		return
 	}
 
