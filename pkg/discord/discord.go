@@ -203,18 +203,18 @@ func (s *ShardInstance) gracefulShutdown() {
 				}(wg, vc)
 			}
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		go func(wg *sync.WaitGroup, cancel context.CancelFunc) {
-			wg.Wait()
-			cancel()
-		}(wg, cancel)
-		<-ctx.Done()
 		serverInstance.Session.Unlock()
 		err := serverInstance.Session.Close()
 		if err != nil {
 			s.Log.WithError(err).Error("Unable to close bot session.")
 		}
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	go func(wg *sync.WaitGroup, cancel context.CancelFunc) {
+		wg.Wait()
+		cancel()
+	}(wg, cancel)
+	<-ctx.Done()
 	s.RUnlock()
 }
 
