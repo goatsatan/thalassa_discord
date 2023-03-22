@@ -1,7 +1,5 @@
 module thalassa_discord
 
-replace github.com/bwmarrin/discordgo v0.27.1 => github.com/ClintonCollins/discordgo v0.27.2
-
 require (
 	github.com/BurntSushi/toml v1.2.1
 	github.com/bwmarrin/discordgo v0.27.1
