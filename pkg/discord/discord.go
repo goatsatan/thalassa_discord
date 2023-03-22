@@ -191,13 +191,24 @@ func getBotConfiguration() *BotConfiguration {
 
 func (s *ShardInstance) gracefulShutdown() {
 	s.RLock()
+	wg := &sync.WaitGroup{}
 	for _, serverInstance := range s.ServerInstances {
 		serverInstance.Session.Lock()
 		if len(serverInstance.Session.VoiceConnections) > 0 {
 			for _, vc := range serverInstance.Session.VoiceConnections {
-				vc.Close()
+				wg.Add(1)
+				go func(wg *sync.WaitGroup, vc *discordgo.VoiceConnection) {
+					defer wg.Done()
+					vc.Close()
+				}(wg, vc)
 			}
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		go func(wg *sync.WaitGroup, cancel context.CancelFunc) {
+			wg.Wait()
+			cancel()
+		}(wg, cancel)
+		<-ctx.Done()
 		serverInstance.Session.Unlock()
 		err := serverInstance.Session.Close()
 		if err != nil {
