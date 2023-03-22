@@ -227,7 +227,7 @@ func (s *ShardInstance) Start() {
 		return
 	}
 
-	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsAllWithoutPrivileged | discordgo.IntentsGuildMembers | discordgo.IntentMessageContent)
+	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsAll)
 
 	// Register messageCreate as a callback for the messageCreate events.
 	dg.AddHandler(s.messageCreate)
