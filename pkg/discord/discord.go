@@ -226,6 +226,7 @@ func (s *ShardInstance) Start() {
 		fmt.Println("error creating Discord session,", err)
 		return
 	}
+	dg.LogLevel = discordgo.LogDebug
 
 	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsAll)
 
