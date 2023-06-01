@@ -34,7 +34,7 @@ func createCustomCommand(instance *discord.ServerInstance, message *discordgo.Me
 			"command_name"},
 			boil.Whitelist("message", "updated_at"), boil.Infer())
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to insert custom command.")
+			instance.Log.Error().Err(err).Msg("Unable to insert custom command.")
 			instance.SendErrorEmbed("Database error trying to create custom command.",
 				err.Error(), message.ChannelID)
 			return

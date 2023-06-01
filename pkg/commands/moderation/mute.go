@@ -23,6 +23,12 @@ func muteUser(instance *discord.ServerInstance, message *discordgo.Message, args
 			return
 		}
 
+		l := instance.Log.With().Fields(logrus.Fields{
+			"requester_username": message.Author.Username,
+			"requester_id":       message.Author.ID,
+			"muted_user_id":      userID,
+		}).Logger()
+
 		err := instance.MuteUser(userID)
 		if err != nil {
 			instance.SendErrorEmbed("Unable to mute user", err.Error(), message.ChannelID)
@@ -39,28 +45,20 @@ func muteUser(instance *discord.ServerInstance, message *discordgo.Message, args
 			boil.Whitelist("created_at", "expires_at"), boil.Infer())
 
 		if err != nil {
-			instance.Log.WithFields(logrus.Fields{
-				"Guild ID": instance.GuildID,
-				"UserID":   userID,
-			}).WithError(err).Error("Unable to add muted user to database.")
+			l.Error().Err(err).Msg("Unable to add muted user to database.")
 		}
 
 		guild, err := instance.GetGuild()
 		if err != nil {
-			instance.Log.WithField("Guild ID", instance.GuildID).WithError(err).Error("Unable to get guild.")
+			l.Error().Err(err).Msg("Unable to get guild.")
 		}
 
 		if guild != nil {
 			for _, vu := range guild.VoiceStates {
-				instance.Log.Debug(vu.UserID)
 				if vu.UserID == userID {
 					err := instance.Session.GuildMemberMove(instance.GuildID, userID, nil)
 					if err != nil {
-						instance.Log.WithFields(logrus.Fields{
-							"Guild ID":    instance.GuildID,
-							"Requester":   message.Author.Username,
-							"MutedUserID": userID,
-						}).WithError(err).Error("Unable to disconnect muted member from voice.")
+						l.Error().Err(err).Msg("Unable to disconnect muted member from voice.")
 						instance.SendErrorEmbed("Unable to disconnect user from voice to mute.", "You must disconnect them manually.", message.ChannelID)
 					}
 				}
@@ -88,12 +86,14 @@ func unmuteUser(instance *discord.ServerInstance, message *discordgo.Message, ar
 			instance.SendErrorEmbed("Invalid command argument.", "Unable to find user from specified id.", message.ChannelID)
 			return
 		}
+		l := instance.Log.With().Fields(logrus.Fields{
+			"requester_username": message.Author.Username,
+			"requester_id":       message.Author.ID,
+			"muted_user_id":      userID,
+		}).Logger()
 		err := instance.Session.GuildMemberRoleRemove(instance.GuildID, userID, mutedRoleID)
 		if err != nil {
-			instance.Log.WithFields(logrus.Fields{
-				"Guild":        instance.GuildID,
-				"Muted member": userID,
-			}).WithError(err).Error("Unable to remove muted role from user.")
+			l.Error().Err(err).Msg("Unable to remove muted role from user.")
 			instance.SendErrorEmbed("Unable to remove muted role from user.", err.Error(), message.ChannelID)
 			return
 		}
@@ -103,17 +103,11 @@ func unmuteUser(instance *discord.ServerInstance, message *discordgo.Message, ar
 			qm.And("guild_id = ?", instance.GuildID),
 		).One(context.TODO(), instance.Db)
 		if err != nil {
-			instance.Log.WithFields(logrus.Fields{
-				"Guild":  instance.GuildID,
-				"UserID": userID,
-			}).WithError(err).Error("Unable to get muted member from database")
+			l.Error().Err(err).Msg("Unable to get muted member from database")
 		} else {
 			_, err := mutedModel.Delete(context.TODO(), instance.Db)
 			if err != nil {
-				instance.Log.WithFields(logrus.Fields{
-					"Guild":  instance.GuildID,
-					"UserID": userID,
-				}).WithError(err).Error("Unable to remove muted user from database.")
+				l.Error().Err(err).Msg("Unable to remove muted user from database.")
 				instance.SendErrorEmbed("Database error.", "Unable to remove muted member.", message.ChannelID)
 			}
 		}

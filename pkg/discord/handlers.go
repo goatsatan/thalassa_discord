@@ -1,10 +1,10 @@
 package discord
 
 import (
+	"github.com/rs/zerolog/log"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
 )
 
 // guildCreate allows us to organize methods for just guild creation.
@@ -17,15 +17,15 @@ type guildMemberAdd struct{}
 type messageCreate struct{}
 
 func (s *ShardInstance) guildCreate(dSession *discordgo.Session, guildCreate *discordgo.GuildCreate) {
-	s.Log.Infof("Joined Server: %s", guildCreate.Name)
+	log.Info().Msgf("Joined Server: %s", guildCreate.Name)
 
-	serverInfo, err := s.handlers.guildCreate.loadOrCreateDiscordGuildFromDatabase(s.Log, s.Db, guildCreate)
+	serverInfo, err := s.handlers.guildCreate.loadOrCreateDiscordGuildFromDatabase(s.ctx, s.Db, guildCreate)
 	if err != nil {
-		s.Log.Error(err)
+		log.Error().Err(err).Msg("Error loading or creating server")
 		return
 	}
 
-	serverInstance := s.handlers.guildCreate.createDiscordGuildInstance(s.Log, s.Db, serverInfo, dSession, guildCreate)
+	serverInstance := s.handlers.guildCreate.createDiscordGuildInstance(s.ctx, s.Db, serverInfo, dSession, guildCreate)
 
 	s.addServerInstance(guildCreate.ID, serverInstance)
 
@@ -67,10 +67,10 @@ func (s *ShardInstance) messageCreate(dSession *discordgo.Session, messageCreate
 			s.handleCommand(commandName, args, messageCreate.Message, serverInstance)
 		}
 		duration := time.Since(start)
-		s.Log.WithFields(logrus.Fields{
+		log.Debug().Fields(map[string]interface{}{
 			"Username": messageCreate.Author.Username,
 			"Command":  commandName,
-		}).Debugf("%s took %s to fully run.", commandName, duration)
+		}).Msgf("%s took %v to fully run.", commandName, duration)
 	}
 }
 

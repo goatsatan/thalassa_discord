@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
-	"time"
-
 	"thalassa_discord/pkg/discord"
 
 	"github.com/bwmarrin/discordgo"
@@ -16,7 +14,6 @@ func RegisterCommands(s *discord.ShardInstance) {
 		Name:     "commands",
 		HelpText: "Displays all available commands.",
 		Execute: func(instance *discord.ServerInstance, message *discordgo.Message, strings []string) {
-			s.Log.Debug("Commands")
 			var commandsArray []*discord.Command
 			for _, command := range s.Commands {
 				commandsArray = append(commandsArray, command)
@@ -100,7 +97,6 @@ func RegisterCommands(s *discord.ShardInstance) {
 }
 
 func eightBall(instance *discord.ServerInstance, message *discordgo.Message, args []string) {
-	rand.Seed(time.Now().Unix())
 	possibleResponses := []string{
 		"Don’t count on it", "Outlook not so good", "My sources say no", "Very doubtful", "My reply is no", "It is certain",
 		"Without a doubt", "You may rely on it", "Yes definitely", "It is decidedly so", "As I see it, yes", "Most likely",
@@ -113,12 +109,11 @@ func eightBall(instance *discord.ServerInstance, message *discordgo.Message, arg
 	_, err := instance.Session.ChannelMessageSend(message.ChannelID,
 		fmt.Sprintf("%s %s.", message.Author.Mention(), response))
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to send channel message for 8ball.")
+		instance.Log.Error().Err(err).Msg("Unable to send channel message for 8ball.")
 	}
 }
 
 func flipCoin(instance *discord.ServerInstance, message *discordgo.Message, args []string) {
-	rand.Seed(time.Now().Unix())
 	results := []string{
 		"Tails",
 		"Heads",
@@ -127,16 +122,15 @@ func flipCoin(instance *discord.ServerInstance, message *discordgo.Message, args
 	_, err := instance.Session.ChannelMessageSend(message.ChannelID,
 		fmt.Sprintf("%s Flipped a coin and it landed on: %s", message.Author.Mention(), result))
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to send channel message for flip coin.")
+		instance.Log.Error().Err(err).Msg("Unable to send channel message for flip coin.")
 	}
 }
 
 func rollDice(instance *discord.ServerInstance, message *discordgo.Message, args []string) {
-	rand.Seed(time.Now().Unix())
 	result := rand.Intn(11) + 2
 	_, err := instance.Session.ChannelMessageSend(message.ChannelID,
 		fmt.Sprintf("%s Rolled two dice for a total of: %d out of 12", message.Author.Mention(), result))
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to send channel message for flip coin.")
+		instance.Log.Error().Err(err).Msg("Unable to send channel message for flip coin.")
 	}
 }

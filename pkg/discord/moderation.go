@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
 )
 
 func (serverInstance *ServerInstance) GetOrCreateNotifyRole() (roleID string, err error) {
@@ -13,9 +12,7 @@ func (serverInstance *ServerInstance) GetOrCreateNotifyRole() (roleID string, er
 	foundNotifyRole := false
 	guildRoles, err := serverInstance.Session.GuildRoles(serverInstance.GuildID)
 	if err != nil {
-		serverInstance.Log.WithFields(logrus.Fields{
-			"Guild": serverInstance.GuildID,
-		}).WithError(err).Error("Unable to get guild roles.")
+		serverInstance.Log.Error().Err(err).Msg("Unable to get guild roles.")
 		return "", fmt.Errorf("unable to get guild roles")
 	}
 	for _, role := range guildRoles {
@@ -39,8 +36,7 @@ func (serverInstance *ServerInstance) GetOrCreateNotifyRole() (roleID string, er
 			},
 		)
 		if err != nil {
-			serverInstance.Log.WithField("Guild",
-				serverInstance.GuildID).WithError(err).Error("Unable to create notify role.")
+			serverInstance.Log.Error().Err(err).Msg("Unable to create notify role.")
 			return "", fmt.Errorf("unable to create notify role")
 		}
 		mutedRole = newRole
@@ -56,9 +52,7 @@ func (serverInstance *ServerInstance) GetOrCreateMutedRole() (roleID string, err
 	foundMutedRole := false
 	guildRoles, err := serverInstance.Session.GuildRoles(serverInstance.GuildID)
 	if err != nil {
-		serverInstance.Log.WithFields(logrus.Fields{
-			"Guild": serverInstance.GuildID,
-		}).WithError(err).Error("Unable to get guild roles.")
+		serverInstance.Log.Error().Err(err).Msg("Unable to get guild roles.")
 		return "", fmt.Errorf("unable to get guild roles")
 	}
 	for _, role := range guildRoles {
@@ -82,8 +76,7 @@ func (serverInstance *ServerInstance) GetOrCreateMutedRole() (roleID string, err
 			},
 		)
 		if err != nil {
-			serverInstance.Log.WithField("Guild",
-				serverInstance.GuildID).WithError(err).Error("Unable to create muted role.")
+			serverInstance.Log.Error().Err(err).Msg("Unable to create muted role.")
 			return "", fmt.Errorf("unable to create muted role")
 		}
 		mutedRole = newRole
@@ -106,10 +99,7 @@ func (serverInstance *ServerInstance) addMutedRoleToChannel(channel *discordgo.C
 		err := serverInstance.Session.ChannelPermissionSet(channel.ID, mutedRoleID,
 			discordgo.PermissionOverwriteTypeRole, 0, 2553920)
 		if err != nil {
-			serverInstance.Log.WithFields(logrus.Fields{
-				"Guild":   serverInstance.GuildID,
-				"Channel": channel.Name,
-			}).WithError(err).Error("Unable to add muted role to channel.")
+			serverInstance.Log.Error().Str("channel", channel.Name).Err(err).Msg("Unable to add muted role to channel.")
 		}
 	}
 	return nil
@@ -122,9 +112,7 @@ func (serverInstance *ServerInstance) addMutedRoleToAllChannels() error {
 	}
 	guildChannels, err := serverInstance.Session.GuildChannels(serverInstance.GuildID)
 	if err != nil {
-		serverInstance.Log.WithFields(logrus.Fields{
-			"Guild": serverInstance.GuildID,
-		}).WithError(err).Error("Unable to get guild channels.")
+		serverInstance.Log.Error().Err(err).Msg("Unable to get guild channels.")
 		return err
 	}
 

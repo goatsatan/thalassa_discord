@@ -35,7 +35,7 @@ func getDefinition(instance *discord.ServerInstance, message *discordgo.Message,
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to create GET request for dictionary.")
+		instance.Log.Error().Err(err).Msg("Unable to create GET request for dictionary.")
 		instance.SendErrorEmbed("Unable to lookup word", err.Error(),
 			message.ChannelID)
 		return
@@ -43,19 +43,19 @@ func getDefinition(instance *discord.ServerInstance, message *discordgo.Message,
 	req.Header.Add("Authorization", "Token 2caaf1f54e8c0d10f7a345e6af45aa8c7beeeb50")
 	resp, err := instance.HttpClient.Do(req)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to lookup word.")
+		instance.Log.Error().Err(err).Msg("Unable to lookup word.")
 		instance.SendErrorEmbed("Unable to lookup word.", err.Error(), message.ChannelID)
 		return
 	}
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to close response body.")
+			instance.Log.Error().Err(err).Msg("Unable to close response body.")
 		}
 	}()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to read response body of dictionary lookup.")
+		instance.Log.Error().Err(err).Msg("Unable to read response body of dictionary lookup.")
 		instance.SendErrorEmbed("Unable to parse JSON from dictionary API.", err.Error(), message.ChannelID)
 		return
 	}
@@ -67,7 +67,7 @@ func getDefinition(instance *discord.ServerInstance, message *discordgo.Message,
 	respJSON := dictionaryResponse{}
 	err = jsonDecoder.Decode(&respJSON)
 	if err != nil {
-		instance.Log.WithError(err).WithField("Body", string(bodyBytes)).Error("Unable to parse JSON from dictionary API.")
+		instance.Log.Error().Err(err).Str("body", string(bodyBytes)).Msg("Unable to parse JSON from dictionary API.")
 		instance.SendErrorEmbed("Unable to parse JSON from dictionary API.", err.Error(), message.ChannelID)
 		return
 	}

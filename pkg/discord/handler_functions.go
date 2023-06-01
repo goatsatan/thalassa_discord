@@ -11,7 +11,7 @@ import (
 	"thalassa_discord/models"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -27,7 +27,7 @@ func (*guildMemberAdd) checkNewUserForMute(serverInstance *ServerInstance, guild
 		).One(context.TODO(), serverInstance.Db)
 		if err != nil {
 			if err != sql.ErrNoRows {
-				serverInstance.Log.WithError(err).Error("Unable to get muted user from database.")
+				serverInstance.Log.Error().Err(err).Msg("Unable to get muted user from database.")
 				return
 			}
 		}
@@ -36,14 +36,14 @@ func (*guildMemberAdd) checkNewUserForMute(serverInstance *ServerInstance, guild
 				if mutedUser.ExpiresAt.Time.Before(time.Now()) {
 					_, err := mutedUser.Delete(context.TODO(), serverInstance.Db)
 					if err != nil {
-						serverInstance.Log.WithError(err).Error("Unable to delete muted user from database.")
+						serverInstance.Log.Error().Err(err).Msg("Unable to delete muted user from database.")
 						return
 					}
 				}
 			}
 			err = serverInstance.MuteUser(guildMemberAdd.User.ID)
 			if err != nil {
-				serverInstance.Log.WithError(err).Error("Unable to mute user that rejoined server.")
+				serverInstance.Log.Error().Err(err).Msg("Unable to mute user that rejoined server.")
 			}
 		}
 	}
@@ -56,7 +56,7 @@ func (*guildCreate) startMusicBot(serverInstance *ServerInstance, guildCreate *d
 		_, err := serverInstance.Session.ChannelVoiceJoin(guildCreate.ID,
 			serverInstance.Configuration.MusicVoiceChannelID.String, false, true)
 		if err != nil {
-			serverInstance.Log.WithError(err).Error("Unable to join voice")
+			serverInstance.Log.Error().Err(err).Msg("Unable to join voice")
 		} else {
 			// If there's a song playing currently don't start playing another song.
 			serverInstance.MusicData.RLock()
@@ -69,15 +69,24 @@ func (*guildCreate) startMusicBot(serverInstance *ServerInstance, guildCreate *d
 	}
 }
 
-func (*guildCreate) loadOrCreateDiscordGuildFromDatabase(logger *logrus.Logger, db *sql.DB,
+func (*guildCreate) loadOrCreateDiscordGuildFromDatabase(ctx context.Context, db *sql.DB,
 	guildCreate *discordgo.GuildCreate,
 ) (*models.DiscordServer, error) {
+
+	l := log.With().Fields(map[string]interface{}{
+		"guild":              guildCreate.Name,
+		"guild_id":           guildCreate.ID,
+		"guild_owner":        guildCreate.OwnerID,
+		"guild_region":       guildCreate.Region,
+		"guild_member_count": guildCreate.MemberCount,
+	}).Logger()
+
 	serverInfo, err := models.DiscordServers(
 		qm.Where("guild_id = ?", guildCreate.ID)).
-		One(context.Background(), db)
+		One(ctx, db)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			logger.WithError(err).Error("Unable to lookup Discord server from database.")
+			l.Error().Err(err).Msg("Unable to lookup Discord server from database.")
 		}
 
 		// No server configuration found create a new one.
@@ -98,9 +107,9 @@ func (*guildCreate) loadOrCreateDiscordGuildFromDatabase(logger *logrus.Logger, 
 			WelcomeMessageEnabled:   false,
 			WelcomeMessage:          null.String{},
 		}
-		err := newServer.Insert(context.Background(), db, boil.Infer())
+		err := newServer.Insert(ctx, db, boil.Infer())
 		if err != nil {
-			logger.WithError(err).Error("Unable to insert Discord server into database.")
+			l.Error().Err(err).Msg("Unable to insert Discord server into database.")
 			return nil, err
 		}
 		serverInfo = newServer
@@ -121,7 +130,7 @@ func (*guildCreate) createEveryoneRolePermissionsIfNotExist(instance *ServerInst
 	).One(context.TODO(), instance.Db)
 	if err != nil {
 		if err != sql.ErrNoRows {
-			instance.Log.WithError(err).Error("Unable to query role permissions from database.")
+			instance.Log.Error().Err(err).Msg("Unable to query role permissions from database.")
 			return
 		}
 		// Permission for everyone doesn't exist so we're going to create it.
@@ -143,22 +152,29 @@ func (*guildCreate) createEveryoneRolePermissionsIfNotExist(instance *ServerInst
 
 		err := newPerms.Insert(context.TODO(), instance.Db, boil.Infer())
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to insert everyone role permissions in database.")
+			instance.Log.Error().Err(err).Msg("Unable to insert everyone role permissions in database.")
 			return
 		}
 	}
 }
 
-func (*guildCreate) createDiscordGuildInstance(logger *logrus.Logger, db *sql.DB, serverInfo *models.DiscordServer,
+func (*guildCreate) createDiscordGuildInstance(ctx context.Context, db *sql.DB, serverInfo *models.DiscordServer,
 	dSession *discordgo.Session, guildCreate *discordgo.GuildCreate,
 ) *ServerInstance {
-	ctx, ctxCancel := context.WithCancel(context.Background())
-	musicCtx, musicCtxCancel := context.WithCancel(context.Background())
-	skipAllCtx, skipAllCtxCancel := context.WithCancel(context.Background())
+	serverCtx, serverCtxCancel := context.WithCancel(ctx)
+	musicCtx, musicCtxCancel := context.WithCancel(serverCtx)
+	skipAllCtx, skipAllCtxCancel := context.WithCancel(serverCtx)
 
-	customCommands, err := models.CustomCommands(qm.Where("guild_id = ?", guildCreate.ID)).All(context.TODO(), db)
+	l := log.With().Fields(map[string]interface{}{
+		"guild":              guildCreate.Name,
+		"guild_id":           guildCreate.ID,
+		"guild_member_count": guildCreate.MemberCount,
+		"guild_joined_at":    guildCreate.JoinedAt,
+	}).Logger()
+
+	customCommands, err := models.CustomCommands(qm.Where("guild_id = ?", guildCreate.ID)).All(serverCtx, db)
 	if err != nil {
-		logger.WithError(err).WithField("Guild FriendlyName", guildCreate.Name).Error("Unable to load custom commands.")
+		l.Error().Err(err).Msg("Unable to load custom commands.")
 	}
 
 	customCommandsMap := make(map[string]string)
@@ -170,9 +186,7 @@ func (*guildCreate) createDiscordGuildInstance(logger *logrus.Logger, db *sql.DB
 		qm.Where("guild_id = ?", guildCreate.ID),
 	).All(context.TODO(), db)
 	if err != nil {
-		logger.WithFields(logrus.Fields{
-			"Guild": guildCreate.Name,
-		}).WithError(err).Error("Unable to get role permissions for guild.")
+		l.Error().Err(err).Msg("Unable to get role permissions for guild.")
 	}
 
 	rolePermissions := make(map[string]rolePermission)
@@ -207,24 +221,26 @@ func (*guildCreate) createDiscordGuildInstance(logger *logrus.Logger, db *sql.DB
 		return sortedPermissions[i].FriendlyName() < sortedPermissions[j].FriendlyName()
 	})
 
+	enabledBotFeatures := serverFeatures{
+		linkRemoval:        serverInfo.LinkRemovalEnabled,
+		music:              serverInfo.MusicEnabled,
+		customCommands:     serverInfo.CustomCommandsEnabled,
+		diceRoll:           serverInfo.DiceRollEnabled,
+		throttleCommands:   serverInfo.ThrottleCommandsEnabled,
+		welcomeMessage:     serverInfo.WelcomeMessageEnabled,
+		moderationMuteRole: serverInfo.ModerationMuteEnabled,
+		notifyMeRole:       serverInfo.NotifyMeRoleEnabled,
+	}
+
 	newInstance := &ServerInstance{
-		GuildID:       guildCreate.Guild.ID,
-		Session:       dSession,
-		Configuration: serverInfo,
-		Log:           logger,
-		Db:            db,
-		Ctx:           ctx,
-		CtxCancel:     ctxCancel,
-		enabledFeatures: serverFeatures{
-			linkRemoval:        serverInfo.LinkRemovalEnabled,
-			music:              serverInfo.MusicEnabled,
-			customCommands:     serverInfo.CustomCommandsEnabled,
-			diceRoll:           serverInfo.DiceRollEnabled,
-			throttleCommands:   serverInfo.ThrottleCommandsEnabled,
-			welcomeMessage:     serverInfo.WelcomeMessageEnabled,
-			moderationMuteRole: serverInfo.ModerationMuteEnabled,
-			notifyMeRole:       serverInfo.NotifyMeRoleEnabled,
-		},
+		GuildID:         guildCreate.Guild.ID,
+		Session:         dSession,
+		Configuration:   serverInfo,
+		Log:             l,
+		Db:              db,
+		Ctx:             serverCtx,
+		CtxCancel:       serverCtxCancel,
+		enabledFeatures: enabledBotFeatures,
 		rolePermissions: rolePermissions,
 		MusicData: &musicOpts{
 			SongPlaying:         false,
@@ -267,54 +283,3 @@ func (*guildCreate) handleNotifyRole(serverInstance *ServerInstance) {
 		_, _ = serverInstance.GetOrCreateNotifyRole()
 	}
 }
-
-// func (*messageCreate) checkForRolePermsSet(serverInstance *ServerInstance, message *discordgo.MessageCreate) {
-// 	serverInstance.CommandSetRolePerms.RLock()
-// 	setRolePermsInProgress := serverInstance.CommandSetRolePerms.InProgress
-// 	serverInstance.CommandSetRolePerms.RUnlock()
-//
-// 	if setRolePermsInProgress {
-// 		serverInstance.CommandSetRolePerms.RLock()
-// 		permissionsUserID := serverInstance.CommandSetRolePerms.UserID
-// 		serverInstance.CommandSetRolePerms.RUnlock()
-// 		if message.Author.ID == permissionsUserID {
-// 			if strings.ToLower(message.Content) != "true" && strings.ToLower(message.Content) != "false" {
-// 				return
-// 			}
-//
-// 			answer := false
-// 			if strings.ToLower(message.Content) == "true" {
-// 				answer = true
-// 			}
-//
-// 			var currentQuestion *setRolePermsAnswer
-// 			currentSortedQuestionIndex := 0
-// 			for idx, p := range serverInstance.CommandSetRolePerms.SortedPermissionsSlice {
-// 				if !serverInstance.CommandSetRolePerms.PermissionAnswers[p].Answered {
-// 					currentQuestion = serverInstance.CommandSetRolePerms.PermissionAnswers[p]
-// 					currentSortedQuestionIndex = idx
-// 					break
-// 				}
-// 			}
-//
-// 			if currentQuestion == nil {
-// 				serverInstance.CommandSetRolePerms.InProgress = false
-// 				_, _ = serverInstance.Session.ChannelMessageSend(message.ChannelID, "Finished permissions. 1")
-//
-// 			} else {
-// 				currentQuestion.Answered = true
-// 				currentQuestion.Value = answer
-// 				nextQuestionIndex := currentSortedQuestionIndex + 1
-// 				if nextQuestionIndex < len(serverInstance.CommandSetRolePerms.SortedPermissionsSlice) {
-// 					_, _ = serverInstance.Session.ChannelMessageSend(message.ChannelID,
-// 						serverInstance.CommandSetRolePerms.PermissionAnswers[serverInstance.CommandSetRolePerms.SortedPermissionsSlice[nextQuestionIndex]].PermissionName)
-// 				} else {
-// 					// All permissions answered.
-// 					serverInstance.CommandSetRolePerms.InProgress = false
-// 					_, _ = serverInstance.Session.ChannelMessageSend(message.ChannelID, "Finished permissions. 2")
-// 				}
-// 			}
-//
-// 		}
-// 	}
-// }

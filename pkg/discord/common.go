@@ -4,14 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/sqlboiler/v4/boil"
 	"time"
 
 	"thalassa_discord/models"
 	"thalassa_discord/pkg/music"
 
-	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
@@ -22,10 +22,8 @@ func (serverInstance *ServerInstance) MuteUser(userID string) error {
 	}
 	err = serverInstance.Session.GuildMemberRoleAdd(serverInstance.GuildID, userID, mutedRoleID)
 	if err != nil {
-		serverInstance.Log.WithFields(logrus.Fields{
-			"Guild ID":     serverInstance.GuildID,
-			"Muted member": userID,
-		}).WithError(err).Error("Unable to add muted role to user.")
+		serverInstance.Log.Error().Str("muted_member", userID).
+			Err(err).Msg("Unable to add muted role to user.")
 		return err
 	}
 
@@ -54,16 +52,15 @@ songQueue:
 				qm.Where("played = false"),
 				qm.OrderBy("requested_at ASC"),
 				qm.Load(models.SongRequestRels.Song),
-			).One(context.Background(), serverInstance.Db)
+			).One(serverInstance.Ctx, serverInstance.Db)
 			if err != nil {
 				if err != sql.ErrNoRows {
-					serverInstance.Log.WithError(err).Error("Unable to query song requests.")
+					serverInstance.Log.Error().Err(err).Msg("Unable to query song requests.")
 					return
 				} else {
 					break songQueue
 				}
 			}
-			serverInstance.Log.Infof("Playing song: %s", nextSongRequest.SongName)
 
 			embedmsg := NewEmbedInfer(serverInstance.Session.State.User.Username, 53503).
 				AddField("Now Playing", fmt.Sprintf("[%s](%s)", nextSongRequest.R.Song.SongName, nextSongRequest.R.Song.URL), false).
@@ -108,7 +105,7 @@ songQueue:
 			serverInstance.Session.RLock()
 			voiceConnection, exists := serverInstance.Session.VoiceConnections[serverInstance.GuildID]
 			if !exists {
-				serverInstance.Log.Error("Unable to find voice connection")
+				serverInstance.Log.Error().Msg("Unable to find voice connection")
 				serverInstance.Session.RUnlock()
 				return
 			}
@@ -116,7 +113,7 @@ songQueue:
 			serverInstance.Session.RUnlock()
 			if voiceReady {
 				nextSongRequest.PlayedAt = null.TimeFrom(time.Now().UTC())
-				ctx, ctxCancel := context.WithCancel(context.Background())
+				ctx, ctxCancel := context.WithCancel(serverInstance.Ctx)
 				serverInstance.MusicData.Lock()
 				duration := 0
 				if nextSongRequest.R.Song.DurationInSeconds.Valid {
@@ -129,16 +126,24 @@ songQueue:
 				serverInstance.MusicData.CurrentSongRequestID = nextSongRequest.ID
 				serverInstance.MusicData.CurrentSongName = nextSongRequest.SongName
 				serverInstance.MusicData.Unlock()
+				serverInstance.Log.Info().Msgf("Playing song: %s", nextSongRequest.SongName)
 				music.StreamSong(ctx, nextSongRequest.R.Song.URL, serverInstance.Log, voiceConnection, serverInstance.Configuration.MusicVolume)
-				nextSongRequest.Played = true
-				_, err = nextSongRequest.Update(context.Background(), serverInstance.Db, boil.Infer())
-				if err != nil {
-					serverInstance.Log.WithError(err).Error("Unable to update song")
+
+				// Don't mark the song as played if the bot is shutting down.
+				select {
+				case <-serverInstance.Ctx.Done():
 					return
+				default:
+					nextSongRequest.Played = true
+					_, err = nextSongRequest.Update(serverInstance.Ctx, serverInstance.Db, boil.Infer())
+					if err != nil && !errors.Is(err, context.Canceled) {
+						serverInstance.Log.Error().Err(err).Msg("Unable to update song")
+						return
+					}
 				}
 			} else {
 				// TODO handle voice not ready.
-				serverInstance.Log.Error("Voice not ready.")
+				serverInstance.Log.Error().Msg("Voice not ready.")
 				return
 			}
 		}

@@ -3,13 +3,15 @@ package discord
 import (
 	"context"
 	"database/sql"
+	"flag"
 	"fmt"
-	"io/ioutil"
-	"log"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -20,8 +22,6 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/bwmarrin/discordgo"
-	"github.com/onrik/logrus/filename"
-	"github.com/sirupsen/logrus"
 )
 
 type BotConfiguration struct {
@@ -45,11 +45,12 @@ type handlers struct {
 type ShardInstance struct {
 	CloseSignal     chan os.Signal
 	directory       string
-	Log             *logrus.Logger
 	ServerInstances map[string]*ServerInstance
 	Commands        map[string]*Command
 	BotConfig       *BotConfiguration
 	handlers        handlers
+	ctx             context.Context
+	ctxCancel       context.CancelFunc
 	Db              *sql.DB
 	sync.RWMutex
 }
@@ -114,7 +115,7 @@ type setRolePerms struct {
 type ServerInstance struct {
 	GuildID             string
 	Session             *discordgo.Session
-	Log                 *logrus.Logger
+	Log                 zerolog.Logger
 	Configuration       *models.DiscordServer
 	MusicData           *musicOpts
 	Ctx                 context.Context
@@ -128,39 +129,46 @@ type ServerInstance struct {
 	sync.RWMutex
 }
 
-func setupLog() *logrus.Logger {
-	l := logrus.New()
-	l.AddHook(filename.NewHook())
-	l.Level = logrus.DebugLevel
-	return l
+func setupLog() {
+	debug := false
+	flag.BoolVar(&debug, "debug", false, "sets log level to debug")
+	flag.Parse()
+	log.Logger = log.With().Caller().Logger()
+	if debug {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	}
 }
 
 func connectDB(config *BotConfiguration) *sql.DB {
 	db, err := sql.Open("postgres", fmt.Sprintf("user=%s dbname=%s sslmode=%s host=%s port=%s password=%s",
 		config.DBUser, config.DBName, config.DBSSL, config.DBHost, config.DBPort, config.DBPassword))
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("Error connecting to database")
 	}
 	err = db.Ping()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("Error pinging database")
 	}
 	return db
 }
 
-func NewInstance() (*ShardInstance, error) {
-	rand.Seed(time.Now().UTC().UnixNano())
+func NewInstance(ctx context.Context) (*ShardInstance, error) {
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+	setupLog()
 	d, err := os.Getwd()
 	if err != nil {
 		return nil, err
 	}
 	botConfig := getBotConfiguration()
 	db := connectDB(botConfig)
+	shardCtx, shardCtxCancel := context.WithCancel(ctx)
 	return &ShardInstance{
 		CloseSignal: make(chan os.Signal, 1),
 		directory:   d,
+		ctx:         shardCtx,
+		ctxCancel:   shardCtxCancel,
 		BotConfig:   botConfig,
-		Log:         setupLog(),
 		Db:          db,
 		handlers: handlers{
 			guildCreate:    &guildCreate{},
@@ -176,15 +184,15 @@ func getBotConfiguration() *BotConfiguration {
 	newConfig := BotConfiguration{}
 	currentDirectory, err := os.Getwd()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("Error getting current directory")
 	}
-	configFile, err := ioutil.ReadFile(currentDirectory + "/config.toml")
+	configFile, err := os.ReadFile(currentDirectory + "/config.toml")
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("Error reading config file")
 	}
 	_, err = toml.Decode(string(configFile), &newConfig)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal().Err(err).Msg("Error decoding config file")
 	}
 	return &newConfig
 }
@@ -206,9 +214,10 @@ func (s *ShardInstance) gracefulShutdown() {
 		serverInstance.Session.Unlock()
 		err := serverInstance.Session.Close()
 		if err != nil {
-			s.Log.WithError(err).Error("Unable to close bot session.")
+			log.Err(err).Msg("Unable to close bot session.")
 		}
 	}
+	s.ctxCancel()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	go func(wg *sync.WaitGroup, cancel context.CancelFunc) {
 		wg.Wait()
@@ -226,7 +235,12 @@ func (s *ShardInstance) Start() {
 		fmt.Println("error creating Discord session,", err)
 		return
 	}
-	dg.LogLevel = discordgo.LogDebug
+
+	logLevel := os.Getenv("THALASSA_LOG_LEVEL")
+	if strings.ToLower(logLevel) == "debug" {
+		log.Debug().Msg("Setting log level to debug.")
+		dg.LogLevel = discordgo.LogDebug
+	}
 
 	dg.Identify.Intents = discordgo.MakeIntent(discordgo.IntentsAll)
 
@@ -239,11 +253,11 @@ func (s *ShardInstance) Start() {
 	// Open the websocket and begin listening.
 	err = dg.Open()
 	if err != nil {
-		fmt.Println("error opening connection,", err)
+		log.Error().Err(err).Msg("error opening connection")
 		return
 	}
 
-	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
+	log.Info().Msg("Bot is now running.  Press CTRL-C to exit.")
 	// Simple way to keep program running until CTRL-C is pressed.
 	<-s.CloseSignal
 	s.gracefulShutdown()

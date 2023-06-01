@@ -115,7 +115,7 @@ func (serverInstance *ServerInstance) getUserPermissions(message *discordgo.Mess
 	for _, roleID := range commandMember.Roles {
 		role, err := serverInstance.GetGuildRole(roleID)
 		if err != nil {
-			serverInstance.Log.WithError(err).Error("Unable to get role permission.")
+			serverInstance.Log.Error().Err(err).Msg("Unable to get role permission.")
 			break
 		}
 		if role.Permissions&discordgo.PermissionAdministrator == discordgo.PermissionAdministrator {

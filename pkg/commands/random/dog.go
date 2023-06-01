@@ -15,21 +15,21 @@ func getRandomDogPicture(instance *discord.ServerInstance, message *discordgo.Me
 	}
 	resp, err := instance.HttpClient.Get("https://dog.ceo/api/breeds/image/random")
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to get random dog image.")
+		instance.Log.Error().Err(err).Msg("Unable to get random dog image.")
 		instance.SendErrorEmbed("Unable to get random dog image.", err.Error(), message.ChannelID)
 		return
 	}
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to close response body.")
+			instance.Log.Error().Err(err).Msg("Unable to close response body.")
 		}
 	}()
 	jsonDecoder := json.NewDecoder(resp.Body)
 	respJSON := dogJSONResponse{}
 	err = jsonDecoder.Decode(&respJSON)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to parse JSON from dog API.")
+		instance.Log.Error().Err(err).Msg("Unable to parse JSON from dog API.")
 		instance.SendErrorEmbed("Unable to parse JSON from dog API.", err.Error(), message.ChannelID)
 		return
 	}
@@ -37,6 +37,6 @@ func getRandomDogPicture(instance *discord.ServerInstance, message *discordgo.Me
 	dogImage := respJSON.Message
 	_, err = instance.Session.ChannelMessageSend(message.ChannelID, dogImage)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to send dog message.")
+		instance.Log.Error().Err(err).Msg("Unable to send dog message.")
 	}
 }

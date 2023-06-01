@@ -103,7 +103,7 @@ func generateAsciiArtFromImageURL(instance *discord.ServerInstance, message *dis
 		_, err = instance.Session.ChannelMessageSend(message.ChannelID,
 			fmt.Sprintf("```%s```", asciiArt))
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to send channel message for ascii art.")
+			instance.Log.Error().Err(err).Msg("Unable to send channel message for ascii art.")
 		}
 	} else {
 		instance.SendErrorEmbed("Invalid command argument.", "You must specify a valid URL.",

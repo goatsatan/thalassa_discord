@@ -20,7 +20,7 @@ func skipSong(instance *discord.ServerInstance, message *discordgo.Message, args
 	instance.MusicData.RUnlock()
 	_, err := instance.Db.Exec(`update song_request set played = true where id = $1`, songRequestID)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to update skipped song from the database.")
+		instance.Log.Error().Err(err).Msg("Unable to update skipped song from the database.")
 		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
 			AddField("Error skipping song.", "Got an issue with the database.", false).
 			MessageEmbed
@@ -39,7 +39,7 @@ func skipAllSongs(instance *discord.ServerInstance, message *discordgo.Message, 
 	musicChatChannelID := instance.Configuration.MusicTextChannelID
 	instance.RUnlock()
 
-	skipAllCtx, skipAllCtxCancel := context.WithCancel(context.Background())
+	skipAllCtx, skipAllCtxCancel := context.WithCancel(instance.Ctx)
 	instance.MusicData.Lock()
 	songRequestID := instance.MusicData.CurrentSongRequestID
 	skipAllCtxCancelFunc := instance.MusicData.SkipAllCtxCancel
@@ -48,10 +48,10 @@ func skipAllSongs(instance *discord.ServerInstance, message *discordgo.Message, 
 	instance.MusicData.SkipAllCtxCancel = skipAllCtxCancel
 	instance.MusicData.Unlock()
 
-	res, err := instance.Db.Exec(`delete from song_request where guild_id = $1 and played = false and id != $2`,
+	res, err := instance.Db.Exec(`update song_request set played = true where guild_id = $1 and played = false and id != $2`,
 		instance.GuildID, songRequestID)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to delete skipped songs from the database.")
+		instance.Log.Error().Err(err).Msg("Unable to delete skipped songs from the database.")
 		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
 			AddField("Error skipping all songs.", "Got an issue with the database.", false).
 			MessageEmbed
@@ -59,7 +59,7 @@ func skipAllSongs(instance *discord.ServerInstance, message *discordgo.Message, 
 	}
 	numDeleted, err := res.RowsAffected()
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to read rows effected.")
+		instance.Log.Error().Err(err).Msg("Unable to read rows effected.")
 	}
 	embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xffd9d9).
 		AddField("Skipping all song requests.", fmt.Sprintf("Number skipped: %d", numDeleted), false).

@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
 )
 
 func (serverInstance *ServerInstance) GetGuild() (*discordgo.Guild, error) {
@@ -12,7 +11,7 @@ func (serverInstance *ServerInstance) GetGuild() (*discordgo.Guild, error) {
 	if err != nil {
 		guild, err = serverInstance.Session.Guild(serverInstance.GuildID)
 		if err != nil {
-			serverInstance.Log.WithField("Guild ID", serverInstance.GuildID).WithError(err).Error("Unable to get guild.")
+			serverInstance.Log.Error().Err(err).Msg("Unable to get guild.")
 			return nil, err
 		}
 	}
@@ -24,10 +23,7 @@ func (serverInstance *ServerInstance) GetGuildMember(userID string) (*discordgo.
 	if err != nil {
 		member, err = serverInstance.Session.GuildMember(serverInstance.GuildID, userID)
 		if err != nil {
-			serverInstance.Log.WithFields(logrus.Fields{
-				"Guild ID": serverInstance.GuildID,
-				"User ID":  userID,
-			}).WithError(err).Error("Unable to get member from guild.")
+			serverInstance.Log.Error().Str("user_id", userID).Err(err).Msg("Unable to get member from guild.")
 			return nil, err
 		}
 	}
@@ -39,7 +35,7 @@ func (serverInstance *ServerInstance) GetGuildRole(roleID string) (*discordgo.Ro
 	if err != nil {
 		roles, err := serverInstance.Session.GuildRoles(serverInstance.GuildID)
 		if err != nil {
-			serverInstance.Log.WithError(err).Error("Unable to get role permission.")
+			serverInstance.Log.Error().Err(err).Msg("Unable to get guild role permissions.")
 			return nil, err
 		}
 		for _, r := range roles {

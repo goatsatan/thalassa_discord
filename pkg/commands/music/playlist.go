@@ -1,7 +1,6 @@
 package music
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"sync"
@@ -24,12 +23,12 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 
 	err := instance.Session.ChannelMessageDelete(message.ChannelID, message.ID)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to delete message.")
+		instance.Log.Error().Err(err).Msg("Unable to delete message.")
 	}
 	if len(args) == 0 {
 		_, err := instance.Session.ChannelMessageSend(message.ChannelID, "You must specify a URL to a playlist.")
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to send channel message.")
+			instance.Log.Error().Err(err).Msg("Unable to send channel message.")
 		}
 		return
 	}
@@ -38,11 +37,11 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 			" This can take a few minutes depending on the size of the playlist.",
 			message.Author.Username))
 	if msgErr != nil {
-		instance.Log.WithError(msgErr).Error("Unable to send message about playlist parsing.")
+		instance.Log.Error().Err(msgErr).Msg("Unable to send message about playlist parsing.")
 	}
-	playlistSongs, err := music.GetPlaylistInfo(context.Background(), args[0])
+	playlistSongs, err := music.GetPlaylistInfo(instance.Ctx, args[0])
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to get playlist info.")
+		instance.Log.Error().Err(err).Msg("Unable to get playlist info.")
 		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
 			AddField("Error getting playlist information:", err.Error(), false).
 			MessageEmbed
@@ -64,7 +63,7 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 			_, err := instance.Db.Exec(`delete from song_request where guild_id = $1 and played = false and id != $2`,
 				instance.GuildID, songRequestID)
 			if err != nil {
-				instance.Log.WithError(err).Error("Unable to delete skipped songs from the database.")
+				instance.Log.Error().Err(err).Msg("Unable to delete skipped songs from the database.")
 			}
 			return
 		default:

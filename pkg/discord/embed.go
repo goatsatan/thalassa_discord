@@ -58,7 +58,7 @@ func (serverInstance *ServerInstance) SendEmbedMessage(embedMessage *discordgo.M
 	messageOnError string) {
 	_, err := serverInstance.Session.ChannelMessageSendEmbed(channelID, embedMessage)
 	if err != nil {
-		serverInstance.Log.WithError(err).Error(messageOnError)
+		serverInstance.Log.Error().Err(err).Msg(messageOnError)
 	}
 }
 

@@ -15,21 +15,21 @@ func getRandomFoxPicture(instance *discord.ServerInstance, message *discordgo.Me
 
 	resp, err := instance.HttpClient.Get("https://randomfox.ca/floof/")
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to get random fox image.")
+		instance.Log.Error().Err(err).Msg("Unable to get random fox image.")
 		instance.SendErrorEmbed("Unable to get random fox image.", err.Error(), message.ChannelID)
 		return
 	}
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to close response body.")
+			instance.Log.Error().Err(err).Msg("Unable to close response body.")
 		}
 	}()
 	jsonDecoder := json.NewDecoder(resp.Body)
 	respJSON := foxJSONResponse{}
 	err = jsonDecoder.Decode(&respJSON)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to parse JSON from fox API.")
+		instance.Log.Error().Err(err).Msg("Unable to parse JSON from fox API.")
 		instance.SendErrorEmbed("Unable to parse JSON from fox API.", err.Error(), message.ChannelID)
 		return
 	}
@@ -37,6 +37,6 @@ func getRandomFoxPicture(instance *discord.ServerInstance, message *discordgo.Me
 	dogImage := respJSON.Image
 	_, err = instance.Session.ChannelMessageSend(message.ChannelID, dogImage)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to send fox message.")
+		instance.Log.Error().Err(err).Msg("Unable to send fox message.")
 	}
 }

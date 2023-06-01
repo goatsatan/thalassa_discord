@@ -13,6 +13,12 @@ func notifySubscribe(instance *discord.ServerInstance, message *discordgo.Messag
 	instance.RLock()
 	notifyEnabled := instance.Configuration.NotifyMeRoleEnabled
 	instance.RUnlock()
+	l := instance.Log.With().Fields(logrus.Fields{
+		"requester_username": message.Author.Username,
+		"requester_id":       message.Author.ID,
+		"channel_id":         message.ChannelID,
+		"command":            "notify_subscribe",
+	}).Logger()
 	if notifyEnabled {
 		notifyRoleID, err := instance.GetOrCreateNotifyRole()
 		if err != nil {
@@ -21,10 +27,7 @@ func notifySubscribe(instance *discord.ServerInstance, message *discordgo.Messag
 		}
 		err = instance.Session.GuildMemberRoleAdd(instance.GuildID, message.Author.ID, notifyRoleID)
 		if err != nil {
-			instance.Log.WithFields(logrus.Fields{
-				"Guild ID":      instance.GuildID,
-				"Notify member": message.Author.Username,
-			}).WithError(err).Error("Unable to add notify role to user.")
+			l.Error().Err(err).Msg("Unable to add notify role to user.")
 			instance.SendErrorEmbed("Unable to add notify role to user", err.Error(), message.ChannelID)
 			return
 		}
@@ -32,10 +35,7 @@ func notifySubscribe(instance *discord.ServerInstance, message *discordgo.Messag
 	_, err := instance.Session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Successfully added you to the notify role %s",
 		message.Author.Mention()))
 	if err != nil {
-		instance.Log.WithFields(logrus.Fields{
-			"Channel": message.ChannelID,
-			"Guild":   message.GuildID,
-		}).WithError(err).Error("Unable to send notify role added message.")
+		l.Error().Err(err).Msg("Unable to send notify role added message.")
 	}
 }
 
@@ -43,6 +43,12 @@ func notifyUnSubscribe(instance *discord.ServerInstance, message *discordgo.Mess
 	instance.RLock()
 	notifyEnabled := instance.Configuration.NotifyMeRoleEnabled
 	instance.RUnlock()
+	l := instance.Log.With().Fields(logrus.Fields{
+		"requester_username": message.Author.Username,
+		"requester_id":       message.Author.ID,
+		"channel_id":         message.ChannelID,
+		"command":            "notify_unsubscribe",
+	}).Logger()
 	if notifyEnabled {
 		notifyRoleID, err := instance.GetOrCreateNotifyRole()
 		if err != nil {
@@ -51,10 +57,7 @@ func notifyUnSubscribe(instance *discord.ServerInstance, message *discordgo.Mess
 		}
 		err = instance.Session.GuildMemberRoleRemove(instance.GuildID, message.Author.ID, notifyRoleID)
 		if err != nil {
-			instance.Log.WithFields(logrus.Fields{
-				"Guild ID":      instance.GuildID,
-				"Notify member": message.Author.Username,
-			}).WithError(err).Error("Unable to remove notify role from user.")
+			l.Error().Err(err).Msg("Unable to remove notify role from user.")
 			instance.SendErrorEmbed("Unable to remove notify role from user", err.Error(), message.ChannelID)
 			return
 		}
@@ -62,9 +65,6 @@ func notifyUnSubscribe(instance *discord.ServerInstance, message *discordgo.Mess
 	_, err := instance.Session.ChannelMessageSend(message.ChannelID, fmt.Sprintf("Successfully removed the notify role from you %s",
 		message.Author.Mention()))
 	if err != nil {
-		instance.Log.WithFields(logrus.Fields{
-			"Channel": message.ChannelID,
-			"Guild":   message.GuildID,
-		}).WithError(err).Error("Unable to send notify role removed message.")
+		l.Error().Err(err).Msg("Unable to send notify role removed message.")
 	}
 }

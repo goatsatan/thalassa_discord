@@ -55,19 +55,19 @@ func ipLookup(instance *discord.ServerInstance, message *discordgo.Message, args
 
 	resp, err := instance.HttpClient.Get(url)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to get IP information.")
+		instance.Log.Error().Err(err).Msg("Unable to get IP information.")
 		instance.SendErrorEmbed("Unable to get IP information.", err.Error(), message.ChannelID)
 		return
 	}
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to close response body.")
+			instance.Log.Error().Err(err).Msg("Unable to close response body.")
 		}
 	}()
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to read response body of IP lookup.")
+		instance.Log.Error().Err(err).Msg("Unable to read response body of IP lookup.")
 		instance.SendErrorEmbed("Unable to parse JSON from IP API.", err.Error(), message.ChannelID)
 		return
 	}
@@ -79,7 +79,7 @@ func ipLookup(instance *discord.ServerInstance, message *discordgo.Message, args
 		errDecoder := json.NewDecoder(bytes.NewReader(bodyBytes))
 		err = errDecoder.Decode(&errJSON)
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to parse JSON from IP lookup.")
+			instance.Log.Error().Err(err).Msg("Unable to parse JSON from IP lookup.")
 			instance.SendErrorEmbed("Unable to parse JSON from IP lookup.", err.Error(), message.ChannelID)
 			return
 		}

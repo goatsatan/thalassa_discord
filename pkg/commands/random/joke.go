@@ -29,21 +29,21 @@ func getRandomJoke(instance *discord.ServerInstance, message *discordgo.Message,
 
 	resp, err := instance.HttpClient.Get("https://sv443.net/jokeapi/v2/joke/Any?blacklistFlags=racist&type=twopart")
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to get random joke.")
+		instance.Log.Error().Err(err).Msg("Unable to get random joke.")
 		instance.SendErrorEmbed("Unable to get random joke.", err.Error(), message.ChannelID)
 		return
 	}
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to close response body.")
+			instance.Log.Error().Err(err).Msg("Unable to close response body.")
 		}
 	}()
 	jsonDecoder := json.NewDecoder(resp.Body)
 	respJSON := jokeJSON{}
 	err = jsonDecoder.Decode(&respJSON)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to parse JSON from joke API.")
+		instance.Log.Error().Err(err).Msg("Unable to parse JSON from joke API.")
 		instance.SendErrorEmbed("Unable to parse JSON from joke API.", err.Error(), message.ChannelID)
 		return
 	}
@@ -51,7 +51,7 @@ func getRandomJoke(instance *discord.ServerInstance, message *discordgo.Message,
 	jokeString := fmt.Sprintf("%s \n %s", respJSON.Setup, respJSON.Delivery)
 	_, err = instance.Session.ChannelMessageSend(message.ChannelID, jokeString)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to send joke message.")
+		instance.Log.Error().Err(err).Msg("Unable to send joke message.")
 	}
 }
 
@@ -75,21 +75,21 @@ func getRandomSafeJoke(instance *discord.ServerInstance, message *discordgo.Mess
 
 	resp, err := instance.HttpClient.Get("https://sv443.net/jokeapi/v2/joke/Any?blacklistFlags=nsfw,religious,political,racist,sexist&type=twopart")
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to get random joke.")
+		instance.Log.Error().Err(err).Msg("Unable to get random joke.")
 		instance.SendErrorEmbed("Unable to get random joke.", err.Error(), message.ChannelID)
 		return
 	}
 	defer func() {
 		err := resp.Body.Close()
 		if err != nil {
-			instance.Log.WithError(err).Error("Unable to close response body.")
+			instance.Log.Error().Err(err).Msg("Unable to close response body.")
 		}
 	}()
 	jsonDecoder := json.NewDecoder(resp.Body)
 	respJSON := jokeJSON{}
 	err = jsonDecoder.Decode(&respJSON)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to parse JSON from joke API.")
+		instance.Log.Error().Err(err).Msg("Unable to parse JSON from joke API.")
 		instance.SendErrorEmbed("Unable to parse JSON from joke API.", err.Error(), message.ChannelID)
 		return
 	}
@@ -97,6 +97,6 @@ func getRandomSafeJoke(instance *discord.ServerInstance, message *discordgo.Mess
 	jokeString := fmt.Sprintf("%s \n %s", respJSON.Setup, respJSON.Delivery)
 	_, err = instance.Session.ChannelMessageSend(message.ChannelID, jokeString)
 	if err != nil {
-		instance.Log.WithError(err).Error("Unable to send joke message.")
+		instance.Log.Error().Err(err).Msg("Unable to send joke message.")
 	}
 }
