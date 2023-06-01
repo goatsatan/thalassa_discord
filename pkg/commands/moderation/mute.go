@@ -9,7 +9,6 @@ import (
 	"thalassa_discord/pkg/discord"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
@@ -23,7 +22,7 @@ func muteUser(instance *discord.ServerInstance, message *discordgo.Message, args
 			return
 		}
 
-		l := instance.Log.With().Fields(logrus.Fields{
+		l := instance.Log.With().Fields(map[string]interface{}{
 			"requester_username": message.Author.Username,
 			"requester_id":       message.Author.ID,
 			"muted_user_id":      userID,
@@ -86,7 +85,7 @@ func unmuteUser(instance *discord.ServerInstance, message *discordgo.Message, ar
 			instance.SendErrorEmbed("Invalid command argument.", "Unable to find user from specified id.", message.ChannelID)
 			return
 		}
-		l := instance.Log.With().Fields(logrus.Fields{
+		l := instance.Log.With().Fields(map[string]interface{}{
 			"requester_username": message.Author.Username,
 			"requester_id":       message.Author.ID,
 			"muted_user_id":      userID,

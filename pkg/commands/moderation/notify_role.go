@@ -2,18 +2,16 @@ package moderation
 
 import (
 	"fmt"
-
 	"thalassa_discord/pkg/discord"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sirupsen/logrus"
 )
 
 func notifySubscribe(instance *discord.ServerInstance, message *discordgo.Message, args []string) {
 	instance.RLock()
 	notifyEnabled := instance.Configuration.NotifyMeRoleEnabled
 	instance.RUnlock()
-	l := instance.Log.With().Fields(logrus.Fields{
+	l := instance.Log.With().Fields(map[string]interface{}{
 		"requester_username": message.Author.Username,
 		"requester_id":       message.Author.ID,
 		"channel_id":         message.ChannelID,
@@ -43,7 +41,7 @@ func notifyUnSubscribe(instance *discord.ServerInstance, message *discordgo.Mess
 	instance.RLock()
 	notifyEnabled := instance.Configuration.NotifyMeRoleEnabled
 	instance.RUnlock()
-	l := instance.Log.With().Fields(logrus.Fields{
+	l := instance.Log.With().Fields(map[string]interface{}{
 		"requester_username": message.Author.Username,
 		"requester_id":       message.Author.ID,
 		"channel_id":         message.ChannelID,
