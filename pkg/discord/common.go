@@ -150,6 +150,8 @@ songQueue:
 	}
 }
 
+// TODO refactor to handle re-joining voice when voice isn't ready.
+
 func (serverInstance *ServerInstance) JoinVoice() error {
 	serverInstance.RLock()
 	defer serverInstance.RUnlock()

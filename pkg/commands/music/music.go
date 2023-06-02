@@ -40,4 +40,18 @@ func RegisterCommands(s *discord.ShardInstance) {
 			Execute:             songCount,
 			RequiredPermissions: nil,
 		})
+	s.RegisterCommand(
+		discord.Command{
+			Name:                "next",
+			HelpText:            "This command returns the next 10 songs in the queue.",
+			Execute:             next,
+			RequiredPermissions: nil,
+		})
+	s.RegisterCommand(
+		discord.Command{
+			Name:                "songleft",
+			HelpText:            "Get the time left in the current song.",
+			Execute:             songLeft,
+			RequiredPermissions: nil,
+		})
 }
