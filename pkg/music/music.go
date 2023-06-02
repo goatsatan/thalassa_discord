@@ -91,7 +91,7 @@ func GetSongInfo(ctx context.Context, url string) (*goutubedl.Info, error) {
 	return &song.Info, nil
 }
 
-func GetPlaylistInfo(ctx context.Context, url string) ([]*goutubedl.Info, error) {
+func GetPlaylistInfo(ctx context.Context, url string, shuffle bool) ([]*goutubedl.Info, error) {
 	ytdlCtx, ytdlCtxCancel := context.WithTimeout(ctx, time.Minute*5)
 	defer ytdlCtxCancel()
 	ytdlpArgs := []string{
@@ -102,8 +102,12 @@ func GetPlaylistInfo(ctx context.Context, url string) ([]*goutubedl.Info, error)
 		"ytsearch",
 		"--no-call-home",
 		"--skip-download",
-		url,
 	}
+	if shuffle {
+		ytdlpArgs = append(ytdlpArgs, "--playlist-random")
+	}
+	ytdlpArgs = append(ytdlpArgs, url)
+
 	cmd := exec.CommandContext(ytdlCtx, "yt-dlp", ytdlpArgs...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

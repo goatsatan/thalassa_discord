@@ -35,7 +35,12 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 	if msgErr != nil {
 		instance.Log.Error().Err(msgErr).Msg("Unable to send message about playlist parsing.")
 	}
-	playlistSongs, err := music.GetPlaylistInfo(instance.Ctx, args[0])
+	shufflePlaylist := false
+	if len(args) > 1 && (args[1] == "shuffle" || args[1] == "random") {
+		shufflePlaylist = true
+	}
+
+	playlistSongs, err := music.GetPlaylistInfo(instance.Ctx, args[0], shufflePlaylist)
 	if err != nil {
 		instance.Log.Error().Err(err).Msg("Unable to get playlist info.")
 		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).

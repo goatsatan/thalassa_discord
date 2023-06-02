@@ -29,7 +29,7 @@ func RegisterCommands(s *discord.ShardInstance) {
 	s.RegisterCommand(
 		discord.Command{
 			Name:                "playlist",
-			HelpText:            "This skips all songs in the queue as well as the current playing song.",
+			HelpText:            "Takes a URL and attempts to play every song in the playlist. Add shuffle or random to the end of the command to shuffle the playlist. Example: !playlist https://youtube.com/playlist random",
 			Execute:             playList,
 			RequiredPermissions: []discord.Permission{discord.PermissionPlayLists},
 		})
