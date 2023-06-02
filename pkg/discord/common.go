@@ -149,3 +149,25 @@ songQueue:
 		}
 	}
 }
+
+func (serverInstance *ServerInstance) JoinVoice() error {
+	serverInstance.RLock()
+	defer serverInstance.RUnlock()
+	if serverInstance.Configuration.MusicEnabled {
+		_, err := serverInstance.Session.ChannelVoiceJoin(serverInstance.GuildID,
+			serverInstance.Configuration.MusicVoiceChannelID.String, false, true)
+		if err != nil {
+			serverInstance.Log.Error().Err(err).Msg("Unable to join voice")
+			return err
+		} else {
+			// If there's a song playing currently don't start playing another song.
+			serverInstance.MusicData.RLock()
+			songPlaying := serverInstance.MusicData.SongPlaying
+			serverInstance.MusicData.RUnlock()
+			if !songPlaying {
+				serverInstance.HandleSong(serverInstance.Configuration.MusicTextChannelID.String)
+			}
+		}
+	}
+	return nil
+}

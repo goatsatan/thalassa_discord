@@ -33,4 +33,11 @@ func RegisterCommands(s *discord.ShardInstance) {
 			Execute:             playList,
 			RequiredPermissions: []discord.Permission{discord.PermissionPlayLists},
 		})
+	s.RegisterCommand(
+		discord.Command{
+			Name:                "songcount",
+			HelpText:            "This command returns the number of songs in the queue.",
+			Execute:             songCount,
+			RequiredPermissions: nil,
+		})
 }

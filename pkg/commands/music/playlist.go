@@ -2,10 +2,6 @@ package music
 
 import (
 	"fmt"
-	"math/rand"
-	"sync"
-	"time"
-
 	"thalassa_discord/pkg/discord"
 	"thalassa_discord/pkg/music"
 
@@ -48,52 +44,26 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 		instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send playlist info error message.")
 		return
 	}
-	workerLimit := make(chan struct{}, 2)
-	wg := new(sync.WaitGroup)
-	for index, song := range playlistSongs {
-		select {
-		case <-ctx.Done():
-			// Wait for wait group to finish so we know we're skipping all songs.
-			wg.Wait()
-			// TODO break this code out into something re-usable.
-			// Skip all
-			instance.MusicData.RLock()
-			songRequestID := instance.MusicData.CurrentSongRequestID
-			instance.MusicData.RUnlock()
-			_, err := instance.Db.Exec(`delete from song_request where guild_id = $1 and played = false and id != $2`,
-				instance.GuildID, songRequestID)
-			if err != nil {
-				instance.Log.Error().Err(err).Msg("Unable to delete skipped songs from the database.")
-			}
-			return
-		default:
-			workerLimit <- struct{}{}
-			wg.Add(1)
-			go func(i *discord.ServerInstance, m *discordgo.Message, cID, url string, ix int) {
-				handleSongInfo(i, m, cID, url)
-				randSleepTime := 1 + rand.Intn(10-1)
-				select {
-				case <-ctx.Done():
-				default:
-					if ix > 2 {
-						time.Sleep(time.Second * time.Duration(randSleepTime))
-					}
-				}
-				<-workerLimit
-				wg.Done()
-			}(instance, message, musicChatChannelID.String, song.URL, index)
 
-			// First 2 songs are queued up. Let's try to start playing.
-			if index == 2 {
-				go func() {
-					instance.MusicData.RLock()
-					currentlyPlaying := instance.MusicData.SongPlaying
-					instance.MusicData.RUnlock()
-					if !currentlyPlaying {
-						instance.HandleSong(musicChatChannelID.String)
-					}
-				}()
+	done := make(chan struct{})
+	go func() {
+		for index, songInfo := range playlistSongs {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				handleSongInfo(instance, message, musicChatChannelID.String, songInfo)
+				if index == 0 {
+					close(done)
+				}
 			}
 		}
+	}()
+	<-done
+	instance.MusicData.RLock()
+	currentlyPlaying := instance.MusicData.SongPlaying
+	instance.MusicData.RUnlock()
+	if !currentlyPlaying {
+		instance.HandleSong(musicChatChannelID.String)
 	}
 }

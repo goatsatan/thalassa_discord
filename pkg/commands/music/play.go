@@ -2,6 +2,7 @@ package music
 
 import (
 	"fmt"
+	"github.com/wader/goutubedl"
 	"time"
 
 	"thalassa_discord/models"
@@ -36,7 +37,17 @@ func playSong(instance *discord.ServerInstance, message *discordgo.Message, args
 		instance.Log.Error().Err(msgErr).Msg("Unable to send message about song queue addition.")
 	}
 
-	handleSongInfo(instance, message, musicChatChannelID.String, args[0])
+	songInfo, err := music.GetSongInfo(instance.Ctx, args[0])
+	if err != nil {
+		instance.Log.Error().Err(err).Msg("Unable to get song info.")
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
+			AddField("Error getting song information:", err.Error(), false).
+			MessageEmbed
+		instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send song info error message.")
+		return
+	}
+
+	handleSongInfo(instance, message, musicChatChannelID.String, songInfo)
 	instance.MusicData.RLock()
 	currentlyPlaying := instance.MusicData.SongPlaying
 	instance.MusicData.RUnlock()
@@ -45,42 +56,36 @@ func playSong(instance *discord.ServerInstance, message *discordgo.Message, args
 	}
 }
 
-func handleSongInfo(instance *discord.ServerInstance, message *discordgo.Message, musicChatChannelID, url string) {
+func handleSongInfo(instance *discord.ServerInstance, message *discordgo.Message, musicChatChannelID string, songInfo *goutubedl.Info) {
 	// fmt.Println("Handling song info.")
-	song, err := music.GetSongInfo(instance.Ctx, url)
-	if err != nil {
-		instance.Log.Error().Err(err).Msg("Unable to get song info.")
-		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
-			AddField("Error getting song information:", err.Error(), false).
-			MessageEmbed
-		instance.SendEmbedMessage(embedmsg, musicChatChannelID, "Unable to send song info error message.")
-		return
+	if songInfo.Thumbnail == "" && len(songInfo.Thumbnails) > 0 {
+		songInfo.Thumbnail = songInfo.Thumbnails[len(songInfo.Thumbnails)-1].URL
 	}
 	newSong := &models.Song{
-		ID:                song.ID,
-		Platform:          null.StringFrom(song.ExtractorKey),
-		SongName:          song.Title,
-		Description:       null.StringFrom(song.Description),
-		URL:               url,
-		DurationInSeconds: null.IntFrom(int(song.Duration)),
+		ID:                songInfo.ID,
+		Platform:          null.StringFrom(songInfo.ExtractorKey),
+		SongName:          songInfo.Title,
+		Description:       null.StringFrom(songInfo.Description),
+		URL:               songInfo.WebpageURL,
+		DurationInSeconds: null.IntFrom(int(songInfo.Duration)),
 		IsStream:          false,
-		ThumbnailURL:      null.StringFrom(song.Thumbnail),
-		Artist:            utils.InterfaceToNullString(song.Artist),
-		Album:             utils.InterfaceToNullString(song.Album),
-		Track:             utils.InterfaceToNullString(song.Track),
+		ThumbnailURL:      null.StringFrom(songInfo.Thumbnail),
+		Artist:            utils.InterfaceToNullString(songInfo.Artist),
+		Album:             utils.InterfaceToNullString(songInfo.Album),
+		Track:             utils.InterfaceToNullString(songInfo.Track),
 	}
-	err = newSong.Upsert(instance.Ctx, instance.Db, true, []string{"id"}, boil.Infer(), boil.Infer())
-	if err != nil {
-		instance.Log.Error().Err(err).Msg("Unable to upsert song.")
+	errUpsertSong := newSong.Upsert(instance.Ctx, instance.Db, true, []string{"id"}, boil.Infer(), boil.Infer())
+	if errUpsertSong != nil {
+		instance.Log.Error().Err(errUpsertSong).Msg("Unable to upsert song.")
 		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
 			AddField("Unable to add song request.", "Database error.", false).
 			MessageEmbed
-		instance.SendEmbedMessage(embedmsg, musicChatChannelID, "Unable to upsert song.")
+		go instance.SendEmbedMessage(embedmsg, musicChatChannelID, "Unable to upsert song.")
 		return
 	}
 	newSongRequest := &models.SongRequest{
 		SongID:            null.StringFrom(newSong.ID),
-		SongName:          song.Title,
+		SongName:          songInfo.Title,
 		RequestedByUserID: message.Author.ID,
 		UsernameAtTime:    message.Author.Username,
 		GuildID:           message.GuildID,
@@ -89,19 +94,21 @@ func handleSongInfo(instance *discord.ServerInstance, message *discordgo.Message
 		PlayedAt:          null.Time{},
 		Played:            false,
 	}
-	err = newSongRequest.Insert(instance.Ctx, instance.Db, boil.Infer())
-	if err != nil {
-		instance.Log.Error().Err(err).Msg("Unable to insert song request.")
+	errUpsertSongRequest := newSongRequest.Insert(instance.Ctx, instance.Db, boil.Infer())
+	if errUpsertSongRequest != nil {
+		instance.Log.Error().Err(errUpsertSongRequest).Msg("Unable to insert song request.")
 		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
 			AddField("Unable to add song request.", "Database error.", false).
 			MessageEmbed
-		instance.SendEmbedMessage(embedmsg, musicChatChannelID, "Unable to insert song request.")
+		go instance.SendEmbedMessage(embedmsg, musicChatChannelID, "Unable to insert song request.")
 		return
 	}
 	embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 28804).
-		AddField("Song has been added to the queue", song.Title, false).
+		AddField("Song has been added to the queue", fmt.Sprintf("[%s](%s)",
+			songInfo.Title, songInfo.WebpageURL), false).
 		AddField("Requested By", message.Author.Username, false).
+		SetImage(songInfo.Thumbnail).
 		MessageEmbed
-	instance.SendEmbedMessage(embedmsg, musicChatChannelID, "Unable to send song added to queue message.")
+	go instance.SendEmbedMessage(embedmsg, musicChatChannelID, "Unable to send song added to queue message.")
 	return
 }

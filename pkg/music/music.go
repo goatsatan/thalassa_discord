@@ -1,14 +1,19 @@
 package music
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/bwmarrin/discordgo"
 	"github.com/jonas747/dca"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/wader/goutubedl"
 	"io"
 	"math"
+	"os/exec"
+	"time"
 )
 
 func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discordgo.VoiceConnection, volume float32) {
@@ -87,18 +92,54 @@ func GetSongInfo(ctx context.Context, url string) (*goutubedl.Info, error) {
 }
 
 func GetPlaylistInfo(ctx context.Context, url string) ([]*goutubedl.Info, error) {
-	playList, errInfo := goutubedl.New(ctx, url, goutubedl.Options{
-		Type: goutubedl.TypePlaylist,
-	})
-	if errInfo != nil {
-		return nil, errInfo
+	ytdlCtx, ytdlCtxCancel := context.WithTimeout(ctx, time.Minute*5)
+	defer ytdlCtxCancel()
+	ytdlpArgs := []string{
+		"--dump-json",
+		"--flat-playlist",
+		"--no-progress",
+		"--default-search",
+		"ytsearch",
+		"--no-call-home",
+		"--skip-download",
+		url,
 	}
-	if playList.Info.Type != "playlist" && playList.Info.Type != "multi_video" {
-		return nil, errors.New("not a playlist")
+	cmd := exec.CommandContext(ytdlCtx, "yt-dlp", ytdlpArgs...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Error().Err(err).Msg("error getting playlist info")
+		return nil, err
 	}
-	var playlistSongs []*goutubedl.Info
-	for _, song := range playList.Info.Entries {
-		playlistSongs = append(playlistSongs, &song)
+	var playListSongs []*goutubedl.Info
+	songs := bytes.Split(output, []byte("\n"))
+	for _, song := range songs {
+		s := song
+		if s == nil || len(s) == 0 {
+			continue
+		}
+		songInfo := &goutubedl.Info{}
+		errUnmarshal := json.Unmarshal(s, songInfo)
+		if errUnmarshal != nil {
+			log.Error().Err(errUnmarshal).Str("song_data", string(s)).Msg("error unmarshalling song")
+			continue
+		}
+		if (songInfo.Duration == 0 && !songInfo.IsLive) || songInfo.Title == "[Deleted video]" || songInfo.Title == "[Private video]" {
+			log.Info().Fields(map[string]interface{}{
+				"song_title":       songInfo.Title,
+				"song_url":         songInfo.URL,
+				"song_is_live":     songInfo.IsLive,
+				"song_duration":    songInfo.Duration,
+				"song_extractor":   songInfo.Extractor,
+				"song_webpage_url": songInfo.WebpageURL,
+			}).Msg("Skipping invalid playlist song")
+			continue
+		}
+		log.Debug().Msgf("Found song in playlist: %s", songInfo.Title)
+		playListSongs = append(playListSongs, songInfo)
 	}
-	return playlistSongs, nil
+	if len(playListSongs) == 0 {
+		log.Debug().Msg("No songs found in playlist")
+		return nil, errors.New("no songs found in playlist")
+	}
+	return playListSongs, nil
 }
