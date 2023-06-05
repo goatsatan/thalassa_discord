@@ -2,7 +2,7 @@ module thalassa_discord
 
 require (
 	github.com/BurntSushi/toml v1.3.0
-	github.com/ClintonCollins/dca v1.0.0
+	github.com/ClintonCollins/dca v1.0.1
 	github.com/bwmarrin/discordgo v0.27.1
 	github.com/dustin/go-humanize v1.0.1
 	github.com/friendsofgo/errors v0.9.2

@@ -71,18 +71,20 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 	}
 	cmd.Stderr = os.Stderr
 
+	skipped := false
+
 	// Add defer to make sure cleanup is always called.
-	defer func(ytCmd *exec.Cmd, ytStdout io.ReadCloser) {
+	defer func(ytCmd *exec.Cmd, ytStdout io.ReadCloser, skippedSong *bool) {
 		// Wait for yt-dlp to finish.
 		errWait := ytCmd.Wait()
-		if errWait != nil && !errors.Is(errWait, context.Canceled) {
+		if errWait != nil && !errors.Is(errWait, context.Canceled) && !skipped {
 			log.Error().Err(errWait).Msg("error waiting for yt-dlp")
 		}
 		// Drain the yt-dlp buffer. This shouldn't need to be drained.
 		_, _ = io.Copy(io.Discard, ytStdout)
 		// Close yt-dlp stdout. This shouldn't need to be closed.
 		_ = ytStdout.Close()
-	}(cmd, ytdl)
+	}(cmd, ytdl, &skipped)
 
 	err = cmd.Start()
 	if err != nil {
@@ -103,6 +105,7 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 	dca.NewStream(encoding, vc, streamChan)
 	select {
 	case <-ctx.Done():
+		skipped = true
 		log.Debug().Msg("song was skipped or program was stopped")
 		return
 	case errStream := <-streamChan:
