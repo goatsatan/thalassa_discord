@@ -93,6 +93,10 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 			log.Error().Err(errStream).Msg("error streaming song")
 		}
 	}
+	errYTDLP := cmd.Wait()
+	if errYTDLP != nil {
+		log.Error().Err(errYTDLP).Msg("error waiting for yt-dlp")
+	}
 	log.Debug().Msg("song finished streaming")
 }
 
