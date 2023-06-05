@@ -29,7 +29,7 @@ type Song struct {
 	CommentCount         interface{}            `json:"comment_count"`
 	Description          string                 `json:"description"`
 	DisplayID            string                 `json:"display_id"`
-	Duration             int                    `json:"duration"`
+	Duration             float64                `json:"duration"`
 	DurationString       string                 `json:"duration_string"`
 	DynamicRange         string                 `json:"dynamic_range"`
 	Epoch                int                    `json:"epoch"`

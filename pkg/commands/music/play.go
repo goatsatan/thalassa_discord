@@ -2,6 +2,7 @@ package music
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"thalassa_discord/models"
@@ -67,7 +68,7 @@ func handleSongInfo(instance *discord.ServerInstance, message *discordgo.Message
 		SongName:          songInfo.Title,
 		Description:       null.StringFrom(songInfo.Description),
 		URL:               songInfo.WebpageURL,
-		DurationInSeconds: null.IntFrom(songInfo.Duration),
+		DurationInSeconds: null.IntFrom(int(math.Round(songInfo.Duration))),
 		IsStream:          false,
 		ThumbnailURL:      null.StringFrom(songInfo.Thumbnail),
 		Artist:            utils.InterfaceToNullString(songInfo.Artist),
