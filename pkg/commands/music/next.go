@@ -27,12 +27,16 @@ func next(instance *discord.ServerInstance, message *discordgo.Message, args []s
 		return
 	}
 	embedmsg := discord.NewEmbedInfer(instance.Session.State.User, discord.GOLD).MessageEmbed
-	embedmsg.Title = "Songs on the deck."
-	embedmsg.Description = fmt.Sprintf("Showing the next %d songs in the queue.", len(nextSongs))
+	embedmsg.Title = "Songs on deck"
+	numberOfSongs := 0
+	if len(nextSongs) > 1 {
+		numberOfSongs = len(nextSongs) - 1
+	}
+	embedmsg.Description = fmt.Sprintf("Showing the next %d songs in the queue.", numberOfSongs)
 	switch len(nextSongs) {
-	case 0:
+	case 0, 1:
 		embedmsg.Description = "There are no songs in the queue."
-	case 1:
+	case 2:
 		embedmsg.Description = "Showing the next song in the queue."
 	}
 	for index, song := range nextSongs {
@@ -45,7 +49,7 @@ func next(instance *discord.ServerInstance, message *discordgo.Message, args []s
 			continue
 		}
 		embedmsg.Fields = append(embedmsg.Fields, &discordgo.MessageEmbedField{
-			Name:   fmt.Sprintf("%d.", index+1),
+			Name:   fmt.Sprintf("%d.", index),
 			Value:  fmt.Sprintf("[%s](%s)", song.SongName, song.R.Song.URL),
 			Inline: false,
 		})
