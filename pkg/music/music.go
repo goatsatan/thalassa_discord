@@ -69,31 +69,26 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 	if err != nil {
 		log.Error().Err(err).Msg("error getting yt-dlp stdout")
 	}
-	defer func() {
-		errClose := ytdl.Close()
-		if errClose != nil {
-			log.Error().Err(errClose).Msg("error closing yt-dlp stdout")
-		}
-	}()
 	cmd.Stderr = os.Stderr
-	err = cmd.Start()
-	if err != nil {
-		log.Error().Err(err).Msg("error starting yt-dlp")
-	}
 
 	// Add defer to make sure cleanup is always called.
 	defer func(ytCmd *exec.Cmd, ytStdout io.ReadCloser) {
 		// Wait for yt-dlp to finish.
-		errYTDLP := ytCmd.Wait()
-		if errYTDLP != nil {
-			log.Error().Err(errYTDLP).Msg("error waiting for yt-dlp")
+		errWait := ytCmd.Wait()
+		if errWait != nil && !errors.Is(errWait, context.Canceled) {
+			log.Error().Err(errWait).Msg("error waiting for yt-dlp")
 		}
-		// Drain the yt-dlp buffer.
-		_, errDrain := io.Copy(io.Discard, ytStdout)
-		if errDrain != nil {
-			log.Error().Err(errDrain).Msg("error draining encoding buffer")
-		}
+		// Drain the yt-dlp buffer. This shouldn't need to be drained.
+		_, _ = io.Copy(io.Discard, ytStdout)
+		// Close yt-dlp stdout. This shouldn't need to be closed.
+		_ = ytStdout.Close()
 	}(cmd, ytdl)
+
+	err = cmd.Start()
+	if err != nil {
+		log.Error().Err(err).Msg("error starting yt-dlp")
+		return
+	}
 
 	// Create a new dca encode session.
 	encoding, errEncode := dca.EncodeMem(ytdl, options)
