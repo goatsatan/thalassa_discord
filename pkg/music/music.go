@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math"
 	"os"
@@ -68,8 +67,14 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 
 	ytdl, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println(err)
+		log.Error().Err(err).Msg("error getting yt-dlp stdout")
 	}
+	defer func() {
+		errClose := ytdl.Close()
+		if errClose != nil {
+			log.Error().Err(errClose).Msg("error closing yt-dlp stdout")
+		}
+	}()
 	cmd.Stderr = os.Stderr
 	err = cmd.Start()
 	if err != nil {
@@ -96,6 +101,11 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 	errYTDLP := cmd.Wait()
 	if errYTDLP != nil {
 		log.Error().Err(errYTDLP).Msg("error waiting for yt-dlp")
+	}
+	// Drain the encoding buffer
+	_, errDrain := io.Copy(io.Discard, ytdl)
+	if errDrain != nil {
+		log.Error().Err(errDrain).Msg("error draining encoding buffer")
 	}
 	log.Debug().Msg("song finished streaming")
 }
