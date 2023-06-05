@@ -31,7 +31,7 @@ func NewEmbed() *Embed {
 	return &Embed{&discordgo.MessageEmbed{}}
 }
 
-func NewEmbedInfer(authorName string, color int) *Embed {
+func NewEmbedInfer(author *discordgo.User, color int) *Embed {
 	return &Embed{&discordgo.MessageEmbed{
 		URL:         "",
 		Type:        "",
@@ -44,12 +44,11 @@ func NewEmbedInfer(authorName string, color int) *Embed {
 		Thumbnail:   nil,
 		Video:       nil,
 		Provider:    nil,
-		Author:      nil,
-		// Author: &discordgo.MessageEmbedAuthor{
-		// 	FriendlyName:    authorName,
-		// 	IconURL: "https://uploader.xylona.net/download/cf191226-a4c2-4942-aafb-eaa93fecf8db",
-		// 	URL:     "https://discord.thalassabot.net",
-		// },
+		Author: &discordgo.MessageEmbedAuthor{
+			Name:    author.Username,
+			IconURL: author.AvatarURL("128"),
+			URL:     "https://clinton.dev",
+		},
 		Fields: nil,
 	}}
 }
@@ -63,7 +62,7 @@ func (serverInstance *ServerInstance) SendEmbedMessage(embedMessage *discordgo.M
 }
 
 func (serverInstance *ServerInstance) SendErrorEmbed(errorMessage, errorDescription, channelID string) {
-	embedmsg := NewEmbedInfer(serverInstance.Session.State.User.Username, RED).
+	embedmsg := NewEmbedInfer(serverInstance.Session.State.User, RED).
 		AddField(errorMessage, errorDescription, false).
 		MessageEmbed
 	serverInstance.SendEmbedMessage(embedmsg, channelID, errorMessage)

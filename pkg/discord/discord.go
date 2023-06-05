@@ -5,8 +5,6 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -15,6 +13,9 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"thalassa_discord/models"
 

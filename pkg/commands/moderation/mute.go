@@ -64,7 +64,7 @@ func muteUser(instance *discord.ServerInstance, message *discordgo.Message, args
 			}
 		}
 
-		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 28804).
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 28804).
 			AddField("Successfully Muted User", args[0], false).
 			MessageEmbed
 		instance.SendEmbedMessage(embedmsg, message.ChannelID, "Unable to send muted user message.")
@@ -111,7 +111,7 @@ func unmuteUser(instance *discord.ServerInstance, message *discordgo.Message, ar
 			}
 		}
 
-		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 28804).
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 28804).
 			AddField("Successfully Unmuted User", args[0], false).
 			MessageEmbed
 		instance.SendEmbedMessage(embedmsg, message.ChannelID, "Unable to send unmuted user message.")

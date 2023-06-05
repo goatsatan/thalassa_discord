@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
+
 	"github.com/friendsofgo/errors"
 	"github.com/volatiletech/sqlboiler/v4/boil"
-	"time"
 
 	"thalassa_discord/models"
 	"thalassa_discord/pkg/music"
@@ -62,7 +63,7 @@ songQueue:
 				}
 			}
 
-			embedmsg := NewEmbedInfer(serverInstance.Session.State.User.Username, 53503).
+			embedmsg := NewEmbedInfer(serverInstance.Session.State.User, 53503).
 				AddField("Now Playing", fmt.Sprintf("[%s](%s)", nextSongRequest.R.Song.SongName, nextSongRequest.R.Song.URL), false).
 				SetImage(nextSongRequest.R.Song.ThumbnailURL.String)
 

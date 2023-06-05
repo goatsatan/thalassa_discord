@@ -86,7 +86,7 @@ func ipLookup(instance *discord.ServerInstance, message *discordgo.Message, args
 		instance.SendErrorEmbed("Unable to lookup IP information", errJSON.Reason, message.ChannelID)
 	}
 
-	embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 28804).
+	embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 28804).
 		AddField("IP", respJSON.IP, false).
 		AddField("City", respJSON.City, true).
 		AddField("Region", respJSON.Region, true).

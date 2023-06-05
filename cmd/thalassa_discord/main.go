@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"github.com/wader/goutubedl"
 	"log"
 
 	"thalassa_discord/pkg/commands/example"
@@ -15,7 +14,6 @@ import (
 )
 
 func main() {
-	goutubedl.Path = "yt-dlp"
 	ctx, ctxCancel := context.WithCancel(context.Background())
 	defer ctxCancel()
 	discordInstance, err := discord.NewInstance(ctx)

@@ -1,7 +1,6 @@
 package music
 
 import (
-	"fmt"
 	"thalassa_discord/pkg/discord"
 	"thalassa_discord/pkg/music"
 
@@ -28,13 +27,15 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 		}
 		return
 	}
-	_, msgErr := instance.Session.ChannelMessageSend(message.ChannelID,
-		fmt.Sprintf("🎵 Attempting to parse a playlist that was requested by %s. 🎵\n"+
-			" This can take a few minutes depending on the size of the playlist.",
-			message.Author.Username))
-	if msgErr != nil {
-		instance.Log.Error().Err(msgErr).Msg("Unable to send message about playlist parsing.")
-	}
+
+	embedmsg := discord.NewEmbedInfer(instance.Session.State.User, discord.DARKER_GREY).
+		SetTitle("Attempting to parse a playlist").
+		SetDescription("This can take a few minutes depending on the size of the playlist.").
+		AddField("Requested by", message.Author.Username, false).
+		SetThumbnail("https://img.icons8.com/arcade/64/playlist.png").
+		MessageEmbed
+	go instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send message about song queue addition.")
+
 	shufflePlaylist := false
 	if len(args) > 1 && (args[1] == "shuffle" || args[1] == "random") {
 		shufflePlaylist = true
@@ -43,7 +44,7 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 	playlistSongs, err := music.GetPlaylistInfo(instance.Ctx, args[0], shufflePlaylist)
 	if err != nil {
 		instance.Log.Error().Err(err).Msg("Unable to get playlist info.")
-		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 0xff9999).
 			AddField("Error getting playlist information:", err.Error(), false).
 			MessageEmbed
 		instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send playlist info error message.")

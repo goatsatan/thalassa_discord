@@ -44,7 +44,7 @@ func createCustomCommand(instance *discord.ServerInstance, message *discordgo.Me
 		instance.CustomCommands[commandName] = commandMessage
 		instance.Unlock()
 
-		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 28804).
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 28804).
 			AddField("Successfully added custom command", args[0], false).
 			MessageEmbed
 		instance.SendEmbedMessage(embedmsg, message.ChannelID,
@@ -83,7 +83,7 @@ func deleteCustomCommand(instance *discord.ServerInstance, message *discordgo.Me
 		delete(instance.CustomCommands, commandName)
 		instance.Unlock()
 
-		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 28804).
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 28804).
 			AddField("Successfully deleted custom command", args[0], false).
 			MessageEmbed
 		instance.SendEmbedMessage(embedmsg, message.ChannelID, "Unable to send custom command deleted message.")

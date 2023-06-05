@@ -77,7 +77,7 @@ func urbanDictionary(instance *discord.ServerInstance, message *discordgo.Messag
 		if i >= 3 {
 			break
 		}
-		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, discord.AQUA).
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, discord.AQUA).
 			AddField("Definition", definition.Definition, false).
 			AddField("Example", definition.Example, false).
 			MessageEmbed

@@ -77,7 +77,7 @@ func getDefinition(instance *discord.ServerInstance, message *discordgo.Message,
 		return
 	}
 
-	embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 28804).
+	embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 28804).
 		AddField("Word", args[0], false).
 		AddField("Description", respJSON.Definitions[0].Definition, false).
 		SetImage(respJSON.Definitions[0].ImageURL).

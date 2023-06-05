@@ -21,14 +21,16 @@ func skipSong(instance *discord.ServerInstance, message *discordgo.Message, args
 	_, err := instance.Db.Exec(`update song_request set played = true where id = $1`, songRequestID)
 	if err != nil {
 		instance.Log.Error().Err(err).Msg("Unable to update skipped song from the database.")
-		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 0xff9999).
 			AddField("Error skipping song.", "Got an issue with the database.", false).
+			SetThumbnail("https://img.icons8.com/arcade/64/playlist.png").
 			MessageEmbed
 		instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send skip song error")
 	}
-	embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xffd9d9).
+	embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 0xffd9d9).
 		AddField("Skipping current song...", songName, false).
 		AddField("Requested By", message.Author.Username, false).
+		SetThumbnail("https://img.icons8.com/arcade/64/playlist.png").
 		MessageEmbed
 	instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send song playing message.")
 	cancelSongFunc()
@@ -52,8 +54,9 @@ func skipAllSongs(instance *discord.ServerInstance, message *discordgo.Message, 
 		instance.GuildID, songRequestID)
 	if err != nil {
 		instance.Log.Error().Err(err).Msg("Unable to delete skipped songs from the database.")
-		embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xff9999).
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 0xff9999).
 			AddField("Error skipping all songs.", "Got an issue with the database.", false).
+			SetThumbnail("https://img.icons8.com/arcade/64/playlist.png").
 			MessageEmbed
 		instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send skip song error")
 	}
@@ -61,9 +64,10 @@ func skipAllSongs(instance *discord.ServerInstance, message *discordgo.Message, 
 	if err != nil {
 		instance.Log.Error().Err(err).Msg("Unable to read rows effected.")
 	}
-	embedmsg := discord.NewEmbedInfer(instance.Session.State.User.Username, 0xffd9d9).
+	embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 0xffd9d9).
 		AddField("Skipping all song requests.", fmt.Sprintf("Number skipped: %d", numDeleted), false).
 		AddField("Requested By", message.Author.Username, false).
+		SetThumbnail("https://img.icons8.com/arcade/64/playlist.png").
 		MessageEmbed
 	instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send song playing message.")
 

@@ -5,42 +5,32 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/bwmarrin/discordgo"
-	"github.com/jonas747/dca"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-	"github.com/wader/goutubedl"
+	"fmt"
 	"io"
 	"math"
+	"os"
 	"os/exec"
+	"strings"
 	"time"
+
+	"github.com/ClintonCollins/dca"
+	"github.com/bwmarrin/discordgo"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discordgo.VoiceConnection, volume float32) {
 	options := dca.StdEncodeOptions
 	options.RawOutput = true
-	options.Bitrate = 96
-	options.Application = "lowdelay"
-	options.Volume = int(math.Round(float64(volume) * 100))
+	options.BufferedFrames = 100
+	options.FrameDuration = 20
+	options.CompressionLevel = 5
+	options.Bitrate = 384
+	options.Volume = int(math.Round(float64(volume)))
 	log.Debug().Msgf("Streaming song %s", link)
 
-	song, errGetSong := goutubedl.New(ctx, link, goutubedl.Options{})
-	if errGetSong != nil {
-		log.Error().Err(errGetSong).Msg("error getting song")
-		return
-	}
-
-	songReader, errReader := song.Download(ctx, "bestaudio*")
-	if errReader != nil {
-		log.Error().Err(errReader).Msg("error reading song")
-		return
-	}
-	defer func() {
-		errClose := songReader.Close()
-		if errClose != nil {
-			log.Error().Err(errClose).Msg("error closing song reader")
-		}
-	}()
+	sCtx, sCtxCancel := context.WithCancel(ctx)
+	defer sCtxCancel()
 
 	errSpeaking := vc.Speaking(true)
 	if errSpeaking != nil {
@@ -61,7 +51,32 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 		}
 	}()
 
-	encoding, errEncode := dca.EncodeMem(songReader, options)
+	ytdlArgs := []string{
+		"--no-progress",
+		"--no-call-home",
+		"--default-search", "ytsearch",
+		"--no-playlist",
+		"--no-mtime",
+		"-o", "-",
+		"--format",
+		"bestaudio*/best",
+		"--prefer-ffmpeg",
+		"--quiet",
+		link,
+	}
+	cmd := exec.CommandContext(sCtx, "yt-dlp", ytdlArgs...)
+
+	ytdl, err := cmd.StdoutPipe()
+	if err != nil {
+		fmt.Println(err)
+	}
+	cmd.Stderr = os.Stderr
+	err = cmd.Start()
+	if err != nil {
+		log.Error().Err(err).Msg("error starting yt-dlp")
+	}
+
+	encoding, errEncode := dca.EncodeMem(ytdl, options)
 	if errEncode != nil {
 		log.Error().Err(errEncode).Msg("error encoding song")
 		return
@@ -73,25 +88,44 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 	case <-ctx.Done():
 		log.Debug().Msg("song was skipped")
 		return
-	case err := <-streamChan:
-		vc.RLock()
-		ready := vc.Ready
-		vc.RUnlock()
-		if err != nil && err != io.EOF && ready {
-			log.Error().Err(err).Msg("error streaming song")
+	case errStream := <-streamChan:
+		if errStream != nil && errStream != io.EOF {
+			log.Error().Err(errStream).Msg("error streaming song")
 		}
 	}
+	log.Debug().Msg("song finished streaming")
 }
 
-func GetSongInfo(ctx context.Context, url string) (*goutubedl.Info, error) {
-	song, errInfo := goutubedl.New(ctx, url, goutubedl.Options{})
-	if errInfo != nil {
-		return nil, errInfo
+func GetSongInfo(ctx context.Context, url string) (*Song, error) {
+	ytdlCtx, ytdlCtxCancel := context.WithTimeout(ctx, time.Minute*1)
+	defer ytdlCtxCancel()
+	ytdlpArgs := []string{
+		"--dump-json",
+		"--no-playlist",
+		"--no-progress",
+		"--default-search",
+		"ytsearch",
+		"--no-call-home",
+		"--skip-download",
+		url,
 	}
-	return &song.Info, nil
+
+	cmd := exec.CommandContext(ytdlCtx, "yt-dlp", ytdlpArgs...)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Error().Err(err).Msg("error getting song info")
+		return nil, err
+	}
+	song := &Song{}
+	errUnmarshal := json.Unmarshal(output, song)
+	if errUnmarshal != nil {
+		log.Error().Err(errUnmarshal).Str("song_data", string(output)).Msg("error unmarshalling song")
+		return nil, errUnmarshal
+	}
+	return song, nil
 }
 
-func GetPlaylistInfo(ctx context.Context, url string, shuffle bool) ([]*goutubedl.Info, error) {
+func GetPlaylistInfo(ctx context.Context, url string, shuffle bool) ([]*Song, error) {
 	ytdlCtx, ytdlCtxCancel := context.WithTimeout(ctx, time.Minute*5)
 	defer ytdlCtxCancel()
 	ytdlpArgs := []string{
@@ -114,14 +148,18 @@ func GetPlaylistInfo(ctx context.Context, url string, shuffle bool) ([]*goutubed
 		log.Error().Err(err).Msg("error getting playlist info")
 		return nil, err
 	}
-	var playListSongs []*goutubedl.Info
+	var playListSongs []*Song
 	songs := bytes.Split(output, []byte("\n"))
 	for _, song := range songs {
 		s := song
 		if s == nil || len(s) == 0 {
 			continue
 		}
-		songInfo := &goutubedl.Info{}
+		// Ignore hidden videos
+		if strings.Contains(string(s), "unavailable video is hidden") {
+			continue
+		}
+		songInfo := &Song{}
 		errUnmarshal := json.Unmarshal(s, songInfo)
 		if errUnmarshal != nil {
 			log.Error().Err(errUnmarshal).Str("song_data", string(s)).Msg("error unmarshalling song")
@@ -130,7 +168,7 @@ func GetPlaylistInfo(ctx context.Context, url string, shuffle bool) ([]*goutubed
 		if (songInfo.Duration == 0 && !songInfo.IsLive) || songInfo.Title == "[Deleted video]" || songInfo.Title == "[Private video]" {
 			log.Info().Fields(map[string]interface{}{
 				"song_title":       songInfo.Title,
-				"song_url":         songInfo.URL,
+				"song_urls":        songInfo.Urls,
 				"song_is_live":     songInfo.IsLive,
 				"song_duration":    songInfo.Duration,
 				"song_extractor":   songInfo.Extractor,

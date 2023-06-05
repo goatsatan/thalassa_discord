@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
+
 	"thalassa_discord/pkg/discord"
 
 	"github.com/bwmarrin/discordgo"
@@ -38,7 +39,7 @@ func RegisterCommands(s *discord.ShardInstance) {
 			var embeds []*discordgo.MessageEmbed
 
 			for _, embedChunk := range embedChunks {
-				embed := discord.NewEmbedInfer(instance.Session.State.User.Username, 28804).MessageEmbed
+				embed := discord.NewEmbedInfer(instance.Session.State.User, 28804).MessageEmbed
 				embed.Title = "Commands"
 				var fields []*discordgo.MessageEmbedField
 				for _, command := range embedChunk {
