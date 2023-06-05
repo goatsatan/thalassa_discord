@@ -81,31 +81,39 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 		log.Error().Err(err).Msg("error starting yt-dlp")
 	}
 
+	// Add defer to make sure cleanup is always called.
+	defer func(ytCmd *exec.Cmd, ytStdout io.ReadCloser) {
+		// Wait for yt-dlp to finish.
+		errYTDLP := ytCmd.Wait()
+		if errYTDLP != nil {
+			log.Error().Err(errYTDLP).Msg("error waiting for yt-dlp")
+		}
+		// Drain the yt-dlp buffer.
+		_, errDrain := io.Copy(io.Discard, ytStdout)
+		if errDrain != nil {
+			log.Error().Err(errDrain).Msg("error draining encoding buffer")
+		}
+	}(cmd, ytdl)
+
+	// Create a new dca encode session.
 	encoding, errEncode := dca.EncodeMem(ytdl, options)
 	if errEncode != nil {
 		log.Error().Err(errEncode).Msg("error encoding song")
 		return
 	}
 	defer encoding.Cleanup()
+
+	// Setup DCA streaming.
 	streamChan := make(chan error)
 	dca.NewStream(encoding, vc, streamChan)
 	select {
 	case <-ctx.Done():
-		log.Debug().Msg("song was skipped")
+		log.Debug().Msg("song was skipped or program was stopped")
 		return
 	case errStream := <-streamChan:
 		if errStream != nil && errStream != io.EOF {
 			log.Error().Err(errStream).Msg("error streaming song")
 		}
-	}
-	errYTDLP := cmd.Wait()
-	if errYTDLP != nil {
-		log.Error().Err(errYTDLP).Msg("error waiting for yt-dlp")
-	}
-	// Drain the encoding buffer
-	_, errDrain := io.Copy(io.Discard, ytdl)
-	if errDrain != nil {
-		log.Error().Err(errDrain).Msg("error draining encoding buffer")
 	}
 	log.Debug().Msg("song finished streaming")
 }
