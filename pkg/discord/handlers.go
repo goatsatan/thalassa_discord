@@ -1,8 +1,9 @@
 package discord
 
 import (
-	"github.com/rs/zerolog/log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -67,9 +68,10 @@ func (s *ShardInstance) messageCreate(dSession *discordgo.Session, messageCreate
 			s.handleCommand(commandName, args, messageCreate.Message, serverInstance)
 		}
 		duration := time.Since(start)
-		log.Debug().Fields(map[string]interface{}{
+		log.Info().Fields(map[string]interface{}{
 			"Username": messageCreate.Author.Username,
 			"Command":  commandName,
+			"Message":  messageCreate.Content,
 		}).Msgf("%s took %v to fully run.", commandName, duration)
 	}
 }
