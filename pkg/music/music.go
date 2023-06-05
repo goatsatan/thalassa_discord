@@ -24,7 +24,7 @@ func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discor
 	options.RawOutput = true
 	options.BufferedFrames = 100
 	options.FrameDuration = 20
-	options.CompressionLevel = 5
+	options.CompressionLevel = 10
 	options.Bitrate = 384
 	options.Volume = int(math.Round(float64(volume)))
 	log.Debug().Msgf("Streaming song %s", link)
