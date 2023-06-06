@@ -3,6 +3,7 @@ module thalassa_discord
 require (
 	github.com/BurntSushi/toml v1.3.0
 	github.com/ClintonCollins/dca v1.0.2
+	github.com/avast/retry-go v2.7.0+incompatible
 	github.com/bwmarrin/discordgo v0.27.1
 	github.com/dustin/go-humanize v1.0.1
 	github.com/friendsofgo/errors v0.9.2
@@ -17,7 +18,6 @@ require (
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0 // indirect
-	github.com/avast/retry-go v2.7.0+incompatible // indirect
 	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
 	github.com/gofrs/uuid v4.4.0+incompatible // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect

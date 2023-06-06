@@ -62,8 +62,6 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/toml v1.3.0 h1:Ws8e5YmnrGEHzZEzg0YvK/7COGYtTC5PbaH9oSSbgfA=
 github.com/BurntSushi/toml v1.3.0/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
-github.com/ClintonCollins/dca v1.0.1 h1:/EwdCxz8N+oO2eNSHbjXgV1hjCfFjh0KEPVR1pP1EM8=
-github.com/ClintonCollins/dca v1.0.1/go.mod h1:WlhWjtkTbNQvDdWUIEc1A97eCrNyKPXguNldmTlbKTg=
 github.com/ClintonCollins/dca v1.0.2 h1:+vqWMEzdcYKa+H83laJvFZ9t+/o7Bpxbk3v882r1DG8=
 github.com/ClintonCollins/dca v1.0.2/go.mod h1:WlhWjtkTbNQvDdWUIEc1A97eCrNyKPXguNldmTlbKTg=
 github.com/DATA-DOG/go-sqlmock v1.4.1/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
