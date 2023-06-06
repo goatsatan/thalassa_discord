@@ -50,7 +50,31 @@ func (*guildMemberAdd) checkNewUserForMute(serverInstance *ServerInstance, guild
 }
 
 func (*guildCreate) startMusicBot(serverInstance *ServerInstance, guildCreate *discordgo.GuildCreate) {
-	_ = serverInstance.JoinVoice()
+	serverInstance.RLock()
+	//musicVoiceChannelID := serverInstance.Configuration.MusicVoiceChannelID.String
+	//musicTextChannelID := serverInstance.Configuration.MusicTextChannelID.String
+	musicEnabled := serverInstance.Configuration.MusicEnabled
+	serverInstance.RUnlock()
+	if musicEnabled {
+		log.Debug().Msg("Starting music bot.")
+		errConnectVoice := serverInstance.ConnectToVoice()
+		if errConnectVoice != nil {
+			serverInstance.Log.Error().Err(errConnectVoice).Msg("Unable to connect to voice.")
+			return
+		}
+		log.Debug().Msg("Starting song queue.")
+		go func() {
+			errSongQueue := serverInstance.handleSongQueue()
+			if errSongQueue != nil {
+				serverInstance.Log.Error().Err(errSongQueue).Msg("Unable to handle song queue.")
+				return
+			}
+		}()
+		// Trigger the queue to immediately start playing if there's songs in the queue.
+		serverInstance.TriggerNextSong <- struct{}{}
+		log.Debug().Msg("Started music bot.")
+	}
+	return
 }
 
 func (*guildCreate) loadOrCreateDiscordGuildFromDatabase(ctx context.Context, db *sql.DB,
@@ -250,6 +274,7 @@ func (*guildCreate) createDiscordGuildInstance(ctx context.Context, db *sql.DB, 
 		HttpClient: &http.Client{
 			Timeout: time.Second * 30,
 		},
+		TriggerNextSong: make(chan struct{}, 10),
 	}
 
 	return newInstance

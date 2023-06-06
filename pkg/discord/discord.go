@@ -127,6 +127,7 @@ type ServerInstance struct {
 	Db                  *sql.DB
 	HttpClient          *http.Client
 	CustomCommands      map[string]string
+	TriggerNextSong     chan struct{}
 	sync.RWMutex
 }
 

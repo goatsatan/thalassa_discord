@@ -55,10 +55,12 @@ func NewEmbedInfer(author *discordgo.User, color int) *Embed {
 
 func (serverInstance *ServerInstance) SendEmbedMessage(embedMessage *discordgo.MessageEmbed, channelID string,
 	messageOnError string) {
-	_, err := serverInstance.Session.ChannelMessageSendEmbed(channelID, embedMessage)
-	if err != nil {
-		serverInstance.Log.Error().Err(err).Msg(messageOnError)
-	}
+	go func() {
+		_, err := serverInstance.Session.ChannelMessageSendEmbed(channelID, embedMessage)
+		if err != nil {
+			serverInstance.Log.Error().Err(err).Msg(messageOnError)
+		}
+	}()
 }
 
 func (serverInstance *ServerInstance) SendErrorEmbed(errorMessage, errorDescription, channelID string) {

@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/avast/retry-go"
 	"github.com/friendsofgo/errors"
+	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
+	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 
 	"thalassa_discord/models"
 	"thalassa_discord/pkg/music"
-
-	"github.com/volatiletech/null/v8"
-	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 )
 
 func (serverInstance *ServerInstance) MuteUser(userID string) error {
@@ -31,146 +31,195 @@ func (serverInstance *ServerInstance) MuteUser(userID string) error {
 	return nil
 }
 
-func (serverInstance *ServerInstance) HandleSong(musicChatChannelID string) {
-	serverInstance.MusicData.Lock()
-	serverInstance.MusicData.SongPlaying = true
-	serverInstance.MusicData.Unlock()
+func (serverInstance *ServerInstance) getNextSongInQueue() (*models.SongRequest, error) {
+	nextSongRequest, err := models.SongRequests(
+		qm.Where("guild_id = ?", serverInstance.GuildID),
+		qm.Where("played = false"),
+		qm.OrderBy("requested_at ASC"),
+		qm.Load(models.SongRequestRels.Song),
+	).One(serverInstance.Ctx, serverInstance.Db)
+	if err != nil {
+		return nil, err
+	}
+	return nextSongRequest, nil
+}
 
-	defer func() {
-		serverInstance.MusicData.Lock()
-		serverInstance.MusicData.SongPlaying = false
-		serverInstance.MusicData.Unlock()
-	}()
-
-songQueue:
+func (serverInstance *ServerInstance) loopNextSongs(ctx context.Context, musicTextChannelID string) error {
 	for {
 		select {
-		case <-serverInstance.Ctx.Done():
-			return
+		case <-ctx.Done():
+			return nil
 		default:
-			nextSongRequest, err := models.SongRequests(
-				qm.Where("guild_id = ?", serverInstance.GuildID),
-				qm.Where("played = false"),
-				qm.OrderBy("requested_at ASC"),
-				qm.Load(models.SongRequestRels.Song),
-			).One(serverInstance.Ctx, serverInstance.Db)
-			if err != nil {
-				if err != sql.ErrNoRows {
-					serverInstance.Log.Error().Err(err).Msg("Unable to query song requests.")
-					return
-				} else {
-					break songQueue
+			nextSongRequest, err := serverInstance.getNextSongInQueue()
+			if err != nil || nextSongRequest == nil {
+				if err != nil && !errors.Is(err, sql.ErrNoRows) {
+					serverInstance.Log.Error().Err(err).Msg("Unable to get next song in queue")
 				}
+				return nil
 			}
-
-			embedmsg := NewEmbedInfer(serverInstance.Session.State.User, 53503).
-				AddField("Now Playing", fmt.Sprintf("[%s](%s)", nextSongRequest.R.Song.SongName, nextSongRequest.R.Song.URL), false).
-				SetImage(nextSongRequest.R.Song.ThumbnailURL.String)
-
-			song := nextSongRequest.R.Song
-			if song.Artist.Valid {
-				embedmsg.AddField("Artist", song.Artist.String, true)
-			}
-			if song.Album.Valid {
-				embedmsg.AddField("Album", song.Album.String, true)
-			}
-			if song.Track.Valid {
-				embedmsg.AddField("Track", song.Track.String, true)
-			}
-			if song.DurationInSeconds.Valid {
-				minutes := song.DurationInSeconds.Int / 60
-				seconds := song.DurationInSeconds.Int % 60
-				secondPlur := "second"
-				if seconds > 1 {
-					secondPlur = "seconds"
-				}
-				minutePlur := "minute"
-				if minutes > 1 {
-					minutePlur = "minutes"
-				}
-				dur := ""
-				if minutes > 0 {
-					if seconds > 0 {
-						dur = fmt.Sprintf("%d %s, %d %s", minutes, minutePlur, seconds, secondPlur)
-					} else {
-						dur = fmt.Sprintf("%d %s", minutes, minutePlur)
-					}
-				} else {
-					dur = fmt.Sprintf("%d %s", seconds, secondPlur)
-				}
-				embedmsg.AddField("Duration", dur, false)
-			}
-			embedmsg.AddField("Requested By", nextSongRequest.UsernameAtTime, false)
-			serverInstance.SendEmbedMessage(embedmsg.MessageEmbed, musicChatChannelID, "Unable to send song playing message.")
-
-			serverInstance.Session.RLock()
-			voiceConnection, exists := serverInstance.Session.VoiceConnections[serverInstance.GuildID]
-			if !exists {
-				serverInstance.Log.Error().Msg("Unable to find voice connection")
-				serverInstance.Session.RUnlock()
-				return
-			}
-			voiceReady := voiceConnection.Ready
-			serverInstance.Session.RUnlock()
-			if voiceReady {
-				nextSongRequest.PlayedAt = null.TimeFrom(time.Now().UTC())
-				ctx, ctxCancel := context.WithCancel(serverInstance.Ctx)
-				serverInstance.MusicData.Lock()
-				duration := 0
-				if nextSongRequest.R.Song.DurationInSeconds.Valid {
-					duration = nextSongRequest.R.Song.DurationInSeconds.Int
-				}
-				serverInstance.MusicData.SongDurationSeconds = duration
-				serverInstance.MusicData.SongStarted = time.Now().UTC()
-				serverInstance.MusicData.Ctx = ctx
-				serverInstance.MusicData.CtxCancel = ctxCancel
-				serverInstance.MusicData.CurrentSongRequestID = nextSongRequest.ID
-				serverInstance.MusicData.CurrentSongName = nextSongRequest.SongName
-				serverInstance.MusicData.Unlock()
-				serverInstance.Log.Info().Msgf("Playing song: %s", nextSongRequest.SongName)
-				music.StreamSong(ctx, nextSongRequest.R.Song.URL, serverInstance.Log, voiceConnection, serverInstance.Configuration.MusicVolume)
-
-				// Don't mark the song as played if the bot is shutting down.
-				select {
-				case <-serverInstance.Ctx.Done():
-					return
-				default:
-					nextSongRequest.Played = true
-					_, err = nextSongRequest.Update(serverInstance.Ctx, serverInstance.Db, boil.Infer())
-					if err != nil && !errors.Is(err, context.Canceled) {
-						serverInstance.Log.Error().Err(err).Msg("Unable to update song")
-						return
-					}
-				}
-			} else {
-				// TODO handle voice not ready.
-				serverInstance.Log.Error().Msg("Voice not ready.")
-				return
+			serverInstance.Log.Debug().Str("song", nextSongRequest.R.Song.SongName).Msg("Playing next song")
+			errPlaySong := serverInstance.handleSongRequest(musicTextChannelID, nextSongRequest)
+			if errPlaySong != nil {
+				serverInstance.Log.Error().Err(errPlaySong).Msg("Unable to play next song")
+				return err
 			}
 		}
 	}
 }
 
-// TODO refactor to handle re-joining voice when voice isn't ready.
-
-func (serverInstance *ServerInstance) JoinVoice() error {
-	serverInstance.RLock()
-	defer serverInstance.RUnlock()
-	if serverInstance.Configuration.MusicEnabled {
-		_, err := serverInstance.Session.ChannelVoiceJoin(serverInstance.GuildID,
-			serverInstance.Configuration.MusicVoiceChannelID.String, false, true)
-		if err != nil {
-			serverInstance.Log.Error().Err(err).Msg("Unable to join voice")
-			return err
-		} else {
-			// If there's a song playing currently don't start playing another song.
-			serverInstance.MusicData.RLock()
-			songPlaying := serverInstance.MusicData.SongPlaying
-			serverInstance.MusicData.RUnlock()
-			if !songPlaying {
-				serverInstance.HandleSong(serverInstance.Configuration.MusicTextChannelID.String)
+func drainSongRequestTriggers(serverInstance *ServerInstance) {
+Drain:
+	for {
+		select {
+		case _, ok := <-serverInstance.TriggerNextSong:
+			if !ok {
+				break Drain
 			}
+		default:
+			break Drain
 		}
 	}
+}
+
+func (serverInstance *ServerInstance) handleSongQueue() error {
+	ticker := time.NewTicker(time.Second * 30)
+	defer ticker.Stop()
+	for {
+		serverInstance.RLock()
+		musicTextChannelID := serverInstance.Configuration.MusicTextChannelID.String
+		serverInstance.RUnlock()
+		select {
+		case <-serverInstance.Ctx.Done():
+			return nil
+		case <-ticker.C:
+			_ = serverInstance.loopNextSongs(serverInstance.Ctx, musicTextChannelID)
+		case <-serverInstance.TriggerNextSong:
+			// Drain other song request triggers, since we loop through all requests.
+			drainSongRequestTriggers(serverInstance)
+			_ = serverInstance.loopNextSongs(serverInstance.Ctx, musicTextChannelID)
+		}
+	}
+}
+
+func (serverInstance *ServerInstance) handleSongRequest(musicChatChannelID string, songRequest *models.SongRequest) error {
+	embedmsg := NewEmbedInfer(serverInstance.Session.State.User, 53503).
+		AddField("Now Playing", fmt.Sprintf("[%s](%s)", songRequest.R.Song.SongName, songRequest.R.Song.URL), false).
+		SetImage(songRequest.R.Song.ThumbnailURL.String)
+
+	song := songRequest.R.Song
+	if song.Artist.Valid {
+		embedmsg.AddField("Artist", song.Artist.String, true)
+	}
+	if song.Album.Valid {
+		embedmsg.AddField("Album", song.Album.String, true)
+	}
+	if song.Track.Valid {
+		embedmsg.AddField("Track", song.Track.String, true)
+	}
+	if song.DurationInSeconds.Valid {
+		minutes := song.DurationInSeconds.Int / 60
+		seconds := song.DurationInSeconds.Int % 60
+		secondPlur := "second"
+		if seconds > 1 {
+			secondPlur = "seconds"
+		}
+		minutePlur := "minute"
+		if minutes > 1 {
+			minutePlur = "minutes"
+		}
+		dur := ""
+		if minutes > 0 {
+			if seconds > 0 {
+				dur = fmt.Sprintf("%d %s, %d %s", minutes, minutePlur, seconds, secondPlur)
+			} else {
+				dur = fmt.Sprintf("%d %s", minutes, minutePlur)
+			}
+		} else {
+			dur = fmt.Sprintf("%d %s", seconds, secondPlur)
+		}
+		embedmsg.AddField("Duration", dur, false)
+	}
+	embedmsg.AddField("Requested By", songRequest.UsernameAtTime, false)
+	serverInstance.SendEmbedMessage(embedmsg.MessageEmbed, musicChatChannelID, "Unable to send song playing message.")
+
+	serverInstance.Session.RLock()
+	voiceConnection, exists := serverInstance.Session.VoiceConnections[serverInstance.GuildID]
+	if !exists {
+		serverInstance.Log.Error().Msg("Unable to find voice connection")
+		serverInstance.Session.RUnlock()
+		return errors.New("unable to find voice connection")
+	}
+	voiceReady := voiceConnection.Ready
+	serverInstance.Session.RUnlock()
+	if voiceReady {
+		songRequest.PlayedAt = null.TimeFrom(time.Now().UTC())
+		ctx, ctxCancel := context.WithCancel(serverInstance.Ctx)
+		serverInstance.MusicData.Lock()
+		duration := 0
+		if songRequest.R.Song.DurationInSeconds.Valid {
+			duration = songRequest.R.Song.DurationInSeconds.Int
+		}
+		serverInstance.MusicData.SongDurationSeconds = duration
+		serverInstance.MusicData.SongStarted = time.Now().UTC()
+		serverInstance.MusicData.SongPlaying = true
+		serverInstance.MusicData.Ctx = ctx
+		serverInstance.MusicData.CtxCancel = ctxCancel
+		serverInstance.MusicData.CurrentSongRequestID = songRequest.ID
+		serverInstance.MusicData.CurrentSongName = songRequest.SongName
+		serverInstance.MusicData.Unlock()
+		serverInstance.Log.Info().Msgf("Playing song: %s", songRequest.SongName)
+		music.StreamSong(ctx, songRequest.R.Song.URL, serverInstance.Log, voiceConnection, serverInstance.Configuration.MusicVolume)
+		serverInstance.MusicData.Lock()
+		serverInstance.MusicData.SongPlaying = false
+		serverInstance.MusicData.Unlock()
+
+		// Don't mark the song as played if the bot is shutting down.
+		select {
+		case <-serverInstance.Ctx.Done():
+			return nil
+		default:
+			songRequest.Played = true
+			_, errUpdate := songRequest.Update(serverInstance.Ctx, serverInstance.Db, boil.Infer())
+			if errUpdate != nil && !errors.Is(errUpdate, context.Canceled) {
+				serverInstance.Log.Error().Err(errUpdate).Msg("Unable to update song")
+				return errUpdate
+			}
+		}
+	} else {
+		serverInstance.Log.Error().Msg("Voice not ready.")
+		return errors.New("voice not ready")
+	}
 	return nil
+}
+
+func (serverInstance *ServerInstance) ConnectToVoice() error {
+	retryOptions := []retry.Option{
+		retry.Context(serverInstance.Ctx),
+		retry.Attempts(10),
+		retry.Delay(1 * time.Second),
+		retry.MaxDelay(1 * time.Minute),
+	}
+	errRetry := retry.Do(func() error {
+		serverInstance.Session.RLock()
+		voiceConnection, exists := serverInstance.Session.VoiceConnections[serverInstance.GuildID]
+		guildID := serverInstance.GuildID
+		musicVoiceChannelID := serverInstance.Configuration.MusicVoiceChannelID.String
+		serverInstance.Session.RUnlock()
+		if !exists {
+			vc, errConnectVoice := serverInstance.Session.ChannelVoiceJoin(guildID,
+				musicVoiceChannelID, false, true)
+			if errConnectVoice != nil {
+				return errConnectVoice
+			}
+			voiceConnection = vc
+		}
+		serverInstance.Session.RLock()
+		voiceReady := voiceConnection.Ready
+		serverInstance.Session.RUnlock()
+		if !voiceReady {
+			return errors.New("voice not ready")
+		}
+		return nil
+	}, retryOptions...)
+	return errRetry
 }

@@ -1,6 +1,8 @@
 package music
 
 import (
+	"strconv"
+
 	"thalassa_discord/pkg/discord"
 	"thalassa_discord/pkg/music"
 
@@ -34,7 +36,7 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 		AddField("Requested by", message.Author.Username, false).
 		SetThumbnail("https://img.icons8.com/arcade/64/playlist.png").
 		MessageEmbed
-	go instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send message about song queue addition.")
+	instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send message about song queue addition.")
 
 	shufflePlaylist := false
 	if len(args) > 1 && (args[1] == "shuffle" || args[1] == "random") {
@@ -52,13 +54,17 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 	}
 
 	done := make(chan struct{})
+	sendEmbedMessage := true
+	if len(playlistSongs) > 25 {
+		sendEmbedMessage = false
+	}
 	go func() {
 		for index, songInfo := range playlistSongs {
 			select {
 			case <-ctx.Done():
 				return
 			default:
-				handleSongInfo(instance, message, musicChatChannelID.String, songInfo)
+				handleSongInfo(instance, message, musicChatChannelID.String, songInfo, sendEmbedMessage)
 				if index == 0 {
 					close(done)
 				}
@@ -66,10 +72,19 @@ func playList(instance *discord.ServerInstance, message *discordgo.Message, args
 		}
 	}()
 	<-done
+	// Send a single embed message when queueing more than 25 songs at a time.
+	if !sendEmbedMessage {
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 28804).
+			AddField("Number of playlist songs added to the queue", strconv.Itoa(len(playlistSongs)), false).
+			AddField("Requested By", message.Author.Username, false).
+			SetThumbnail("https://img.icons8.com/arcade/64/playlist.png").
+			MessageEmbed
+		instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send song added to queue message.")
+	}
 	instance.MusicData.RLock()
 	currentlyPlaying := instance.MusicData.SongPlaying
 	instance.MusicData.RUnlock()
 	if !currentlyPlaying {
-		instance.HandleSong(musicChatChannelID.String)
+		instance.TriggerNextSong <- struct{}{}
 	}
 }
