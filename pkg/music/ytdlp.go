@@ -43,7 +43,7 @@ type Song struct {
 	FormatNote           string                 `json:"format_note"`
 	FormatSortFields     []string               `json:"_format_sort_fields"`
 	Formats              []SongFormats          `json:"formats"`
-	Fps                  int                    `json:"fps"`
+	Fps                  float64                `json:"fps"`
 	Fulltitle            string                 `json:"fulltitle"`
 	HasDrm               interface{}            `json:"_has_drm"`
 	Height               int                    `json:"height"`
