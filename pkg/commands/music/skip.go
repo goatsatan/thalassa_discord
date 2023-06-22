@@ -11,13 +11,20 @@ import (
 
 func skipSong(instance *discord.ServerInstance, message *discordgo.Message, args []string) {
 	instance.RLock()
+	songPlaying := instance.MusicData.SongPlaying
 	musicChatChannelID := instance.Configuration.MusicTextChannelID
-	instance.RUnlock()
-	instance.MusicData.RLock()
 	songRequestID := instance.MusicData.CurrentSongRequestID
 	songName := instance.MusicData.CurrentSongName
 	cancelSongFunc := instance.MusicData.CtxCancel
-	instance.MusicData.RUnlock()
+	instance.RUnlock()
+	if !songPlaying {
+		embedmsg := discord.NewEmbedInfer(instance.Session.State.User, 0xff9999).
+			AddField("Error skipping song.", "No song is currently playing.", false).
+			SetThumbnail("https://img.icons8.com/arcade/64/playlist.png").
+			MessageEmbed
+		instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send skip song error")
+		return
+	}
 	_, err := instance.Db.Exec(`update song_request set played = true where id = $1`, songRequestID)
 	if err != nil {
 		instance.Log.Error().Err(err).Msg("Unable to update skipped song from the database.")
