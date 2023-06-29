@@ -1,0 +1,92 @@
+syntax = "proto3";
+package thalassa.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "thalassa_discord/gen/go/thalassa/v1;thalassav1";
+
+service APIService {
+  rpc GetSongRequests(GetSongRequestsRequest) returns (GetSongRequestsResponse);
+  // rpc AddSongRequest(AddSongRequestRequest) returns (AddSongRequestResponse);
+  rpc GetCurrentSongPlaying(GetCurrentSongPlayingRequest) returns (GetCurrentSongPlayingResponse);
+  rpc SongRequestsUpdateStream(SongRequestsUpdateStreamRequest) returns (stream SongRequestsUpdateStreamResponse);
+}
+
+message Song {
+  string song_name = 1;
+  string url = 2;
+  bool is_stream = 3;
+  string artist = 4;
+  string track = 5;
+  string album = 6;
+  string thumbnail_url = 7;
+  uint32 duration_in_seconds = 8;
+  string description = 9;
+  string platform = 10;
+  string id = 11;
+}
+
+message SongRequest {
+  string song_name = 1;
+  string username_at_time = 2;
+  string guild_name_at_time = 3;
+  google.protobuf.Timestamp requested_at = 4;
+  bool played = 5;
+  google.protobuf.Timestamp played_at = 6;
+  Song song = 7;
+  int64 id = 8;
+  string requested_by_user_id = 9;
+}
+message GetSongRequestsRequest {
+  string guild_id = 1;
+  string order_by = 2;
+  bool order_desc = 3;
+  int32 limit = 4;
+  int32 offset = 5;
+}
+
+message GetSongRequestsResponse {
+  repeated SongRequest song_requests = 1;
+  int32 total = 2;
+}
+
+message AddSongRequestRequest {
+  string guild_id = 1;
+  string url = 2;
+}
+
+message AddSongRequestResponse {
+  SongRequest song_request = 1;
+}
+
+message GetCurrentSongPlayingRequest {
+  string guild_id = 1;
+}
+
+message GetCurrentSongPlayingResponse {
+  google.protobuf.Timestamp requested_at = 1;
+  google.protobuf.Timestamp started_at = 2;
+  Song song = 3;
+  string requested_by = 4;
+  SongRequest song_request = 5;
+}
+
+message SongRequestsUpdateEvent {
+  enum EventType {
+    SONG_REQUEST_ADDED = 0;
+    SONG_REQUEST_PLAYING = 1;
+    SONG_REQUEST_FINISHED = 2;
+    SONG_REQUEST_SKIPPED = 3;
+    SONG_REQUEST_SKIPPED_ALL = 4;
+  }
+  EventType event_type = 1;
+  SongRequest song_request = 2;
+}
+
+message SongRequestsUpdateStreamRequest {
+  string guild_id = 1;
+}
+
+message SongRequestsUpdateStreamResponse {
+  SongRequestsUpdateEvent event = 1;
+}

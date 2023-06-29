@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -17,12 +18,13 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
-	"thalassa_discord/models"
-
 	_ "github.com/lib/pq"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bwmarrin/discordgo"
+
+	"thalassa_discord/models"
+	"thalassa_discord/pkg/music"
 )
 
 type BotConfiguration struct {
@@ -35,6 +37,9 @@ type BotConfiguration struct {
 	DBHost       string
 	DBPort       string
 	DBSSL        string
+	EnableAPI    bool
+	APIHost      string
+	APIPort      string
 }
 
 type handlers struct {
@@ -44,30 +49,34 @@ type handlers struct {
 }
 
 type ShardInstance struct {
-	CloseSignal     chan os.Signal
-	directory       string
-	ServerInstances map[string]*ServerInstance
-	Commands        map[string]*Command
-	BotConfig       *BotConfiguration
-	handlers        handlers
-	ctx             context.Context
-	ctxCancel       context.CancelFunc
-	Db              *sql.DB
-	sync.RWMutex
+	CloseSignal                  chan os.Signal
+	directory                    string
+	ServerInstances              map[string]*ServerInstance
+	Commands                     map[string]*Command
+	BotConfig                    *BotConfiguration
+	SongQueueChannel             chan music.SongQueueEvent
+	handlers                     handlers
+	Ctx                          context.Context
+	ctxCancel                    context.CancelFunc
+	Db                           *sql.DB
+	GuildCreatedFunction         func(*discordgo.Session, *discordgo.GuildCreate)
+	SongQueueUpdateCallback      func(guildID string, event music.SongQueueEvent)
+	SongQueueUpdateCallbackMutex *sync.RWMutex
+	*sync.RWMutex
 }
 
 type musicOpts struct {
-	SongPlaying          bool
-	SongStarted          time.Time
-	SongDurationSeconds  int
-	IsStream             bool
-	Ctx                  context.Context
-	CtxCancel            context.CancelFunc
-	SkipAllCtx           context.Context
-	SkipAllCtxCancel     context.CancelFunc
-	CurrentSongRequestID int64
-	CurrentSongName      string
-	sync.RWMutex
+	SongPlaying         bool
+	SongStarted         time.Time
+	SongDurationSeconds int
+	IsStream            bool
+	Ctx                 context.Context
+	CtxCancel           context.CancelFunc
+	SkipAllCtx          context.Context
+	SkipAllCtxCancel    context.CancelFunc
+	CurrentSongRequest  *models.SongRequest
+	CurrentSong         *models.Song
+	*sync.RWMutex
 }
 
 type serverFeatures struct {
@@ -110,25 +119,27 @@ type setRolePerms struct {
 	SortedPermissionsSlice []Permission
 	PermissionAnswers      map[Permission]*setRolePermsAnswer
 	Timeout                time.Time
-	sync.RWMutex
+	*sync.RWMutex
 }
 
 type ServerInstance struct {
-	GuildID             string
-	Session             *discordgo.Session
-	Log                 zerolog.Logger
-	Configuration       *models.DiscordServer
-	MusicData           *musicOpts
-	Ctx                 context.Context
-	CtxCancel           context.CancelFunc
-	enabledFeatures     serverFeatures
-	rolePermissions     map[string]rolePermission
-	CommandSetRolePerms *setRolePerms
-	Db                  *sql.DB
-	HttpClient          *http.Client
-	CustomCommands      map[string]string
-	TriggerNextSong     chan struct{}
-	sync.RWMutex
+	GuildID                      string
+	Session                      *discordgo.Session
+	Log                          zerolog.Logger
+	Configuration                *models.DiscordServer
+	MusicData                    *musicOpts
+	Ctx                          context.Context
+	CtxCancel                    context.CancelFunc
+	enabledFeatures              serverFeatures
+	rolePermissions              map[string]rolePermission
+	CommandSetRolePerms          *setRolePerms
+	Db                           *sql.DB
+	HttpClient                   *http.Client
+	CustomCommands               map[string]string
+	SongQueueUpdateCallback      func(guildID string, event music.SongQueueEvent)
+	SongQueueUpdateCallbackMutex *sync.RWMutex
+	TriggerNextSong              chan struct{}
+	*sync.RWMutex
 }
 
 func setupLog() {
@@ -167,12 +178,13 @@ func NewInstance(ctx context.Context) (*ShardInstance, error) {
 	db := connectDB(botConfig)
 	shardCtx, shardCtxCancel := context.WithCancel(ctx)
 	return &ShardInstance{
-		CloseSignal: make(chan os.Signal, 1),
-		directory:   d,
-		ctx:         shardCtx,
-		ctxCancel:   shardCtxCancel,
-		BotConfig:   botConfig,
-		Db:          db,
+		CloseSignal:                  make(chan os.Signal, 1),
+		directory:                    d,
+		Ctx:                          shardCtx,
+		ctxCancel:                    shardCtxCancel,
+		BotConfig:                    botConfig,
+		Db:                           db,
+		SongQueueUpdateCallbackMutex: &sync.RWMutex{},
 		handlers: handlers{
 			guildCreate:    &guildCreate{},
 			guildMemberAdd: &guildMemberAdd{},
@@ -180,6 +192,7 @@ func NewInstance(ctx context.Context) (*ShardInstance, error) {
 		},
 		Commands:        make(map[string]*Command),
 		ServerInstances: make(map[string]*ServerInstance),
+		RWMutex:         &sync.RWMutex{},
 	}, nil
 }
 
@@ -259,6 +272,8 @@ func (s *ShardInstance) Start() {
 		log.Error().Err(err).Msg("error opening connection")
 		return
 	}
+
+	log.Info().Msg("RPC Enabled: " + strconv.FormatBool(s.BotConfig.EnableAPI))
 
 	log.Info().Msg("Bot is now running.  Press CTRL-C to exit.")
 	// Simple way to keep program running until CTRL-C is pressed.

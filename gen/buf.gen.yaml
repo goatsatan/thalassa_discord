@@ -1,0 +1,21 @@
+version: v1
+plugins:
+  - plugin: go
+    out: go
+    opt:
+      - paths=source_relative
+  - plugin: connect-go
+    out: go
+    opt:
+      - paths=source_relative
+      - require_unimplemented_servers=true
+  - plugin: buf.build/bufbuild/es
+    out: ts
+    # With target=ts, we generate TypeScript files.
+    # Use target=js+dts to generate JavaScript and TypeScript declaration files
+    # like remote generation does.
+    opt: target=ts
+  - plugin: buf.build/bufbuild/connect-es
+    out: ts
+    # With target=ts, we generate TypeScript files.
+    opt: target=ts

@@ -4,9 +4,13 @@ require (
 	github.com/BurntSushi/toml v1.3.0
 	github.com/ClintonCollins/dca v1.0.2
 	github.com/avast/retry-go v2.7.0+incompatible
+	github.com/bufbuild/connect-go v1.8.0
 	github.com/bwmarrin/discordgo v0.27.1
 	github.com/dustin/go-humanize v1.0.1
 	github.com/friendsofgo/errors v0.9.2
+	github.com/go-chi/chi/v5 v5.0.8
+	github.com/go-chi/cors v1.2.1
+	github.com/google/uuid v1.3.0
 	github.com/h2non/filetype v1.1.3
 	github.com/lib/pq v1.10.9
 	github.com/qeesung/image2ascii v1.0.1
@@ -14,6 +18,7 @@ require (
 	github.com/volatiletech/null/v8 v8.1.2
 	github.com/volatiletech/sqlboiler/v4 v4.14.2
 	github.com/volatiletech/strmangle v0.0.4
+	google.golang.org/protobuf v1.28.1
 )
 
 require (

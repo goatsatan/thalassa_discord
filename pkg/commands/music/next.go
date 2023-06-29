@@ -15,6 +15,7 @@ func next(instance *discord.ServerInstance, message *discordgo.Message, args []s
 		qm.Where("guild_id = ?", instance.GuildID),
 		qm.Where("played = false"),
 		qm.OrderBy("requested_at ASC"),
+		qm.OrderBy("id asc"),
 		qm.Load(models.SongRequestRels.Song),
 		qm.Limit(11),
 	).All(instance.Ctx, instance.Db)
@@ -27,12 +28,13 @@ func next(instance *discord.ServerInstance, message *discordgo.Message, args []s
 		return
 	}
 	embedmsg := discord.NewEmbedInfer(instance.Session.State.User, discord.GOLD).MessageEmbed
-	embedmsg.Title = "Songs on deck"
+	embedmsg.Title = "Showing songs that are next in the music queue."
 	numberOfSongs := 0
 	if len(nextSongs) > 1 {
 		numberOfSongs = len(nextSongs) - 1
 	}
-	embedmsg.Description = fmt.Sprintf("Showing the next %d songs in the queue.", numberOfSongs)
+	embedmsg.URL = "https://music.theboomer.club"
+	embedmsg.Description = fmt.Sprintf("Showing the next %d songs in the queue. View the live list at https://music.theboomer.club", numberOfSongs)
 	switch len(nextSongs) {
 	case 0, 1:
 		embedmsg.Description = "There are no songs in the queue."

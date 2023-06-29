@@ -16,7 +16,26 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"thalassa_discord/models"
 )
+
+type SongQueueEventType int
+
+const (
+	SongAdded      SongQueueEventType = iota // Song has been added to the queue
+	SongPlaying                              // Song is currently playing
+	SongFinished                             // Song has finished playing
+	SongSkipped                              // Song has been skipped
+	SongSkippedAll                           // All songs have been skipped
+)
+
+type SongQueueEvent struct {
+	Song        *models.Song
+	SongRequest *models.SongRequest
+	Type        SongQueueEventType
+	GuildID     string
+}
 
 func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discordgo.VoiceConnection, volume float32) {
 	options := dca.StdEncodeOptions

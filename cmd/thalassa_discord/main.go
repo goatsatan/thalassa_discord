@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 
+	"thalassa_discord/pkg/api"
 	"thalassa_discord/pkg/commands/example"
 	"thalassa_discord/pkg/commands/general"
 	"thalassa_discord/pkg/commands/lookup"
@@ -28,6 +29,14 @@ func main() {
 	random.RegisterCommands(discordInstance)
 	example.RegisterCommands(discordInstance)
 	general.RegisterCommands(discordInstance)
+
+	if discordInstance.BotConfig.EnableAPI {
+		apiInstance := api.New(discordInstance, discordInstance.BotConfig.APIHost, discordInstance.BotConfig.APIPort)
+		discordInstance.SongQueueUpdateCallbackMutex.Lock()
+		discordInstance.SongQueueUpdateCallback = apiInstance.SongQueueEventUpdate
+		discordInstance.SongQueueUpdateCallbackMutex.Unlock()
+		apiInstance.Start(discordInstance.Ctx)
+	}
 
 	discordInstance.Start()
 }

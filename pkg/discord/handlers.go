@@ -20,20 +20,30 @@ type messageCreate struct{}
 func (s *ShardInstance) guildCreate(dSession *discordgo.Session, guildCreate *discordgo.GuildCreate) {
 	log.Info().Msgf("Joined Server: %s", guildCreate.Name)
 
-	serverInfo, err := s.handlers.guildCreate.loadOrCreateDiscordGuildFromDatabase(s.ctx, s.Db, guildCreate)
+	serverInfo, err := s.handlers.guildCreate.loadOrCreateDiscordGuildFromDatabase(s.Ctx, s.Db, guildCreate)
 	if err != nil {
 		log.Error().Err(err).Msg("Error loading or creating server")
 		return
 	}
 
-	serverInstance := s.handlers.guildCreate.createDiscordGuildInstance(s.ctx, s.Db, serverInfo, dSession, guildCreate)
+	serverInstance := s.handlers.guildCreate.createDiscordGuildInstance(s.Ctx, s.Db, serverInfo, dSession, guildCreate)
 
 	s.addServerInstance(guildCreate.ID, serverInstance)
+
+	if s.SongQueueUpdateCallback != nil {
+		s.SongQueueUpdateCallbackMutex.Lock()
+		serverInstance.SongQueueUpdateCallbackMutex = s.SongQueueUpdateCallbackMutex
+		serverInstance.SongQueueUpdateCallback = s.SongQueueUpdateCallback
+		s.SongQueueUpdateCallbackMutex.Unlock()
+	}
 
 	s.handlers.guildCreate.startMusicBot(serverInstance, guildCreate)
 	s.handlers.guildCreate.createEveryoneRolePermissionsIfNotExist(serverInstance, guildCreate)
 	s.handlers.guildCreate.handleMutedRole(serverInstance, guildCreate)
 	s.handlers.guildCreate.handleNotifyRole(serverInstance)
+	if s.GuildCreatedFunction != nil {
+		s.GuildCreatedFunction(dSession, guildCreate)
+	}
 }
 
 func (s *ShardInstance) guildMemberAdd(dSession *discordgo.Session, guildMemberAdd *discordgo.GuildMemberAdd) {

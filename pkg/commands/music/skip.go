@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"thalassa_discord/pkg/discord"
+	"thalassa_discord/pkg/music"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -13,8 +14,8 @@ func skipSong(instance *discord.ServerInstance, message *discordgo.Message, args
 	instance.RLock()
 	songPlaying := instance.MusicData.SongPlaying
 	musicChatChannelID := instance.Configuration.MusicTextChannelID
-	songRequestID := instance.MusicData.CurrentSongRequestID
-	songName := instance.MusicData.CurrentSongName
+	songRequestID := instance.MusicData.CurrentSongRequest.ID
+	songName := instance.MusicData.CurrentSong.SongName
 	cancelSongFunc := instance.MusicData.CtxCancel
 	instance.RUnlock()
 	if !songPlaying {
@@ -50,7 +51,7 @@ func skipAllSongs(instance *discord.ServerInstance, message *discordgo.Message, 
 
 	skipAllCtx, skipAllCtxCancel := context.WithCancel(instance.Ctx)
 	instance.MusicData.Lock()
-	songRequestID := instance.MusicData.CurrentSongRequestID
+	songRequestID := instance.MusicData.CurrentSongRequest.ID
 	skipAllCtxCancelFunc := instance.MusicData.SkipAllCtxCancel
 	skipAllCtxCancelFunc()
 	instance.MusicData.SkipAllCtx = skipAllCtx
@@ -79,4 +80,7 @@ func skipAllSongs(instance *discord.ServerInstance, message *discordgo.Message, 
 	instance.SendEmbedMessage(embedmsg, musicChatChannelID.String, "Unable to send song playing message.")
 
 	skipSong(instance, message, args)
+	instance.SendSongQueueEvent(music.SongQueueEvent{
+		Song: nil, SongRequest: nil, Type: music.SongSkippedAll},
+	)
 }

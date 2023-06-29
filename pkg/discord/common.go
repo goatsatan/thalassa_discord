@@ -36,12 +36,21 @@ func (serverInstance *ServerInstance) getNextSongInQueue() (*models.SongRequest,
 		qm.Where("guild_id = ?", serverInstance.GuildID),
 		qm.Where("played = false"),
 		qm.OrderBy("requested_at ASC"),
+		qm.OrderBy("id asc"),
 		qm.Load(models.SongRequestRels.Song),
 	).One(serverInstance.Ctx, serverInstance.Db)
 	if err != nil {
 		return nil, err
 	}
 	return nextSongRequest, nil
+}
+
+func (serverInstance *ServerInstance) SendSongQueueEvent(songRequestEvent music.SongQueueEvent) {
+	serverInstance.SongQueueUpdateCallbackMutex.RLock()
+	defer serverInstance.SongQueueUpdateCallbackMutex.RUnlock()
+	if serverInstance.SongQueueUpdateCallback != nil {
+		serverInstance.SongQueueUpdateCallback(serverInstance.GuildID, songRequestEvent)
+	}
 }
 
 func (serverInstance *ServerInstance) loopNextSongs(ctx context.Context, musicTextChannelID string) error {
@@ -164,13 +173,29 @@ func (serverInstance *ServerInstance) handleSongRequest(musicChatChannelID strin
 		serverInstance.MusicData.SongPlaying = true
 		serverInstance.MusicData.Ctx = ctx
 		serverInstance.MusicData.CtxCancel = ctxCancel
-		serverInstance.MusicData.CurrentSongRequestID = songRequest.ID
-		serverInstance.MusicData.CurrentSongName = songRequest.SongName
+		serverInstance.MusicData.CurrentSongRequest = songRequest
+		serverInstance.MusicData.CurrentSong = songRequest.R.Song
+
+		// Send the song playing event to the song queue channel.
+		serverInstance.SendSongQueueEvent(music.SongQueueEvent{
+			Song: songRequest.R.Song, SongRequest: songRequest, Type: music.SongPlaying},
+		)
+
 		serverInstance.MusicData.Unlock()
+
 		serverInstance.Log.Info().Msgf("Playing song: %s", songRequest.SongName)
 		music.StreamSong(ctx, songRequest.R.Song.URL, serverInstance.Log, voiceConnection, serverInstance.Configuration.MusicVolume)
 		serverInstance.MusicData.Lock()
 		serverInstance.MusicData.SongPlaying = false
+
+		// Send the song finished event to the song queue channel.
+		songQueueEvent := music.SongQueueEvent{Song: songRequest.R.Song, SongRequest: songRequest, Type: music.SongFinished}
+		if ctx.Err() != nil {
+			// If the context was cancelled, the song was skipped.
+			songQueueEvent.Type = music.SongSkipped
+		}
+		serverInstance.SendSongQueueEvent(songQueueEvent)
+
 		serverInstance.MusicData.Unlock()
 
 		// Don't mark the song as played if the bot is shutting down.

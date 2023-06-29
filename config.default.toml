@@ -7,3 +7,6 @@ DBPassword = "DBPassword"
 DBHost = "localhost"
 DBPort = "5432"
 DBSSL = "disable"
+EnableAPI = false
+APIHost = "127.0.0.1"
+APIPort = "8080"

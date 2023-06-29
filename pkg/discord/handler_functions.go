@@ -8,13 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"thalassa_discord/models"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/zerolog/log"
 	"github.com/volatiletech/null/v8"
 	"github.com/volatiletech/sqlboiler/v4/boil"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
+
+	"thalassa_discord/models"
 )
 
 func (*guildMemberAdd) checkNewUserForMute(serverInstance *ServerInstance, guildMemberAdd *discordgo.GuildMemberAdd) {
@@ -241,15 +241,16 @@ func (*guildCreate) createDiscordGuildInstance(ctx context.Context, db *sql.DB, 
 	}
 
 	newInstance := &ServerInstance{
-		GuildID:         guildCreate.Guild.ID,
-		Session:         dSession,
-		Configuration:   serverInfo,
-		Log:             l,
-		Db:              db,
-		Ctx:             serverCtx,
-		CtxCancel:       serverCtxCancel,
-		enabledFeatures: enabledBotFeatures,
-		rolePermissions: rolePermissions,
+		GuildID:                      guildCreate.Guild.ID,
+		Session:                      dSession,
+		Configuration:                serverInfo,
+		Log:                          l,
+		Db:                           db,
+		Ctx:                          serverCtx,
+		CtxCancel:                    serverCtxCancel,
+		enabledFeatures:              enabledBotFeatures,
+		rolePermissions:              rolePermissions,
+		SongQueueUpdateCallbackMutex: &sync.RWMutex{},
 		MusicData: &musicOpts{
 			SongPlaying:         false,
 			SongStarted:         time.Time{},
@@ -259,7 +260,7 @@ func (*guildCreate) createDiscordGuildInstance(ctx context.Context, db *sql.DB, 
 			CtxCancel:           musicCtxCancel,
 			SkipAllCtx:          skipAllCtx,
 			SkipAllCtxCancel:    skipAllCtxCancel,
-			RWMutex:             sync.RWMutex{},
+			RWMutex:             &sync.RWMutex{},
 		},
 		CommandSetRolePerms: &setRolePerms{
 			UserID:                 "",
@@ -268,13 +269,14 @@ func (*guildCreate) createDiscordGuildInstance(ctx context.Context, db *sql.DB, 
 			SortedPermissionsSlice: sortedPermissions,
 			PermissionAnswers:      setRolePermsMap,
 			Timeout:                time.Time{},
-			RWMutex:                sync.RWMutex{},
+			RWMutex:                &sync.RWMutex{},
 		},
 		CustomCommands: customCommandsMap,
 		HttpClient: &http.Client{
 			Timeout: time.Second * 30,
 		},
 		TriggerNextSong: make(chan struct{}, 10),
+		RWMutex:         &sync.RWMutex{},
 	}
 
 	return newInstance
