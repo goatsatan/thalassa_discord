@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { GetCurrentSongPlayingRequest, GetCurrentSongPlayingResponse, GetSongRequestsRequest, GetSongRequestsResponse, SongRequestsUpdateStreamRequest, SongRequestsUpdateStreamResponse } from "./thalassa_pb.js";
+import { GetCurrentSongPlayingRequest, GetCurrentSongPlayingResponse, GetSongRequestsRequest, GetSongRequestsResponse } from "./thalassa_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -24,6 +24,8 @@ export const APIService = {
     /**
      * rpc AddSongRequest(AddSongRequestRequest) returns (AddSongRequestResponse);
      *
+     *  rpc SongRequestsUpdateStream(SongRequestsUpdateStreamRequest) returns (stream SongRequestsUpdateStreamResponse);
+     *
      * @generated from rpc thalassa.v1.APIService.GetCurrentSongPlaying
      */
     getCurrentSongPlaying: {
@@ -31,15 +33,6 @@ export const APIService = {
       I: GetCurrentSongPlayingRequest,
       O: GetCurrentSongPlayingResponse,
       kind: MethodKind.Unary,
-    },
-    /**
-     * @generated from rpc thalassa.v1.APIService.SongRequestsUpdateStream
-     */
-    songRequestsUpdateStream: {
-      name: "SongRequestsUpdateStream",
-      I: SongRequestsUpdateStreamRequest,
-      O: SongRequestsUpdateStreamResponse,
-      kind: MethodKind.ServerStreaming,
     },
   }
 } as const;

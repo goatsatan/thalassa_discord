@@ -39,9 +39,6 @@ const (
 	// APIServiceGetCurrentSongPlayingProcedure is the fully-qualified name of the APIService's
 	// GetCurrentSongPlaying RPC.
 	APIServiceGetCurrentSongPlayingProcedure = "/thalassa.v1.APIService/GetCurrentSongPlaying"
-	// APIServiceSongRequestsUpdateStreamProcedure is the fully-qualified name of the APIService's
-	// SongRequestsUpdateStream RPC.
-	APIServiceSongRequestsUpdateStreamProcedure = "/thalassa.v1.APIService/SongRequestsUpdateStream"
 )
 
 // APIServiceClient is a client for the thalassa.v1.APIService service.
@@ -49,7 +46,6 @@ type APIServiceClient interface {
 	GetSongRequests(context.Context, *connect_go.Request[v1.GetSongRequestsRequest]) (*connect_go.Response[v1.GetSongRequestsResponse], error)
 	// rpc AddSongRequest(AddSongRequestRequest) returns (AddSongRequestResponse);
 	GetCurrentSongPlaying(context.Context, *connect_go.Request[v1.GetCurrentSongPlayingRequest]) (*connect_go.Response[v1.GetCurrentSongPlayingResponse], error)
-	SongRequestsUpdateStream(context.Context, *connect_go.Request[v1.SongRequestsUpdateStreamRequest]) (*connect_go.ServerStreamForClient[v1.SongRequestsUpdateStreamResponse], error)
 }
 
 // NewAPIServiceClient constructs a client for the thalassa.v1.APIService service. By default, it
@@ -72,19 +68,13 @@ func NewAPIServiceClient(httpClient connect_go.HTTPClient, baseURL string, opts 
 			baseURL+APIServiceGetCurrentSongPlayingProcedure,
 			opts...,
 		),
-		songRequestsUpdateStream: connect_go.NewClient[v1.SongRequestsUpdateStreamRequest, v1.SongRequestsUpdateStreamResponse](
-			httpClient,
-			baseURL+APIServiceSongRequestsUpdateStreamProcedure,
-			opts...,
-		),
 	}
 }
 
 // aPIServiceClient implements APIServiceClient.
 type aPIServiceClient struct {
-	getSongRequests          *connect_go.Client[v1.GetSongRequestsRequest, v1.GetSongRequestsResponse]
-	getCurrentSongPlaying    *connect_go.Client[v1.GetCurrentSongPlayingRequest, v1.GetCurrentSongPlayingResponse]
-	songRequestsUpdateStream *connect_go.Client[v1.SongRequestsUpdateStreamRequest, v1.SongRequestsUpdateStreamResponse]
+	getSongRequests       *connect_go.Client[v1.GetSongRequestsRequest, v1.GetSongRequestsResponse]
+	getCurrentSongPlaying *connect_go.Client[v1.GetCurrentSongPlayingRequest, v1.GetCurrentSongPlayingResponse]
 }
 
 // GetSongRequests calls thalassa.v1.APIService.GetSongRequests.
@@ -97,17 +87,11 @@ func (c *aPIServiceClient) GetCurrentSongPlaying(ctx context.Context, req *conne
 	return c.getCurrentSongPlaying.CallUnary(ctx, req)
 }
 
-// SongRequestsUpdateStream calls thalassa.v1.APIService.SongRequestsUpdateStream.
-func (c *aPIServiceClient) SongRequestsUpdateStream(ctx context.Context, req *connect_go.Request[v1.SongRequestsUpdateStreamRequest]) (*connect_go.ServerStreamForClient[v1.SongRequestsUpdateStreamResponse], error) {
-	return c.songRequestsUpdateStream.CallServerStream(ctx, req)
-}
-
 // APIServiceHandler is an implementation of the thalassa.v1.APIService service.
 type APIServiceHandler interface {
 	GetSongRequests(context.Context, *connect_go.Request[v1.GetSongRequestsRequest]) (*connect_go.Response[v1.GetSongRequestsResponse], error)
 	// rpc AddSongRequest(AddSongRequestRequest) returns (AddSongRequestResponse);
 	GetCurrentSongPlaying(context.Context, *connect_go.Request[v1.GetCurrentSongPlayingRequest]) (*connect_go.Response[v1.GetCurrentSongPlayingResponse], error)
-	SongRequestsUpdateStream(context.Context, *connect_go.Request[v1.SongRequestsUpdateStreamRequest], *connect_go.ServerStream[v1.SongRequestsUpdateStreamResponse]) error
 }
 
 // NewAPIServiceHandler builds an HTTP handler from the service implementation. It returns the path
@@ -127,11 +111,6 @@ func NewAPIServiceHandler(svc APIServiceHandler, opts ...connect_go.HandlerOptio
 		svc.GetCurrentSongPlaying,
 		opts...,
 	))
-	mux.Handle(APIServiceSongRequestsUpdateStreamProcedure, connect_go.NewServerStreamHandler(
-		APIServiceSongRequestsUpdateStreamProcedure,
-		svc.SongRequestsUpdateStream,
-		opts...,
-	))
 	return "/thalassa.v1.APIService/", mux
 }
 
@@ -144,8 +123,4 @@ func (UnimplementedAPIServiceHandler) GetSongRequests(context.Context, *connect_
 
 func (UnimplementedAPIServiceHandler) GetCurrentSongPlaying(context.Context, *connect_go.Request[v1.GetCurrentSongPlayingRequest]) (*connect_go.Response[v1.GetCurrentSongPlayingResponse], error) {
 	return nil, connect_go.NewError(connect_go.CodeUnimplemented, errors.New("thalassa.v1.APIService.GetCurrentSongPlaying is not implemented"))
-}
-
-func (UnimplementedAPIServiceHandler) SongRequestsUpdateStream(context.Context, *connect_go.Request[v1.SongRequestsUpdateStreamRequest], *connect_go.ServerStream[v1.SongRequestsUpdateStreamResponse]) error {
-	return connect_go.NewError(connect_go.CodeUnimplemented, errors.New("thalassa.v1.APIService.SongRequestsUpdateStream is not implemented"))
 }

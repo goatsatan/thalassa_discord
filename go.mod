@@ -10,9 +10,9 @@ require (
 	github.com/friendsofgo/errors v0.9.2
 	github.com/go-chi/chi/v5 v5.0.8
 	github.com/go-chi/cors v1.2.1
-	github.com/google/uuid v1.3.0
 	github.com/h2non/filetype v1.1.3
 	github.com/lib/pq v1.10.9
+	github.com/olahol/melody v1.1.3
 	github.com/qeesung/image2ascii v1.0.1
 	github.com/rs/zerolog v1.29.1
 	github.com/volatiletech/null/v8 v8.1.2

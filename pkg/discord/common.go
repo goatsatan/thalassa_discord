@@ -177,8 +177,10 @@ func (serverInstance *ServerInstance) handleSongRequest(musicChatChannelID strin
 		serverInstance.MusicData.CurrentSong = songRequest.R.Song
 
 		// Send the song playing event to the song queue channel.
+		s := *songRequest.R.Song
+		sr := *songRequest
 		serverInstance.SendSongQueueEvent(music.SongQueueEvent{
-			Song: songRequest.R.Song, SongRequest: songRequest, Type: music.SongPlaying},
+			Song: &s, SongRequest: &sr, Type: music.SongPlaying},
 		)
 
 		serverInstance.MusicData.Unlock()
@@ -189,7 +191,7 @@ func (serverInstance *ServerInstance) handleSongRequest(musicChatChannelID strin
 		serverInstance.MusicData.SongPlaying = false
 
 		// Send the song finished event to the song queue channel.
-		songQueueEvent := music.SongQueueEvent{Song: songRequest.R.Song, SongRequest: songRequest, Type: music.SongFinished}
+		songQueueEvent := music.SongQueueEvent{Song: &s, SongRequest: &sr, Type: music.SongFinished}
 		if ctx.Err() != nil {
 			// If the context was cancelled, the song was skipped.
 			songQueueEvent.Type = music.SongSkipped

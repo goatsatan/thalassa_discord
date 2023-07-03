@@ -9,7 +9,7 @@ service APIService {
   rpc GetSongRequests(GetSongRequestsRequest) returns (GetSongRequestsResponse);
   // rpc AddSongRequest(AddSongRequestRequest) returns (AddSongRequestResponse);
   rpc GetCurrentSongPlaying(GetCurrentSongPlayingRequest) returns (GetCurrentSongPlayingResponse);
-  rpc SongRequestsUpdateStream(SongRequestsUpdateStreamRequest) returns (stream SongRequestsUpdateStreamResponse);
+//  rpc SongRequestsUpdateStream(SongRequestsUpdateStreamRequest) returns (stream SongRequestsUpdateStreamResponse);
 }
 
 message Song {

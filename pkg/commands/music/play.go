@@ -115,7 +115,10 @@ func handleSongInfo(instance *discord.ServerInstance, message *discordgo.Message
 			MessageEmbed
 		instance.SendEmbedMessage(embedmsg, musicChatChannelID, "Unable to send song added to queue message.")
 	}
+
+	s := *newSong
+	sr := *newSongRequest
 	instance.SendSongQueueEvent(music.SongQueueEvent{
-		Song: newSong, SongRequest: newSongRequest, Type: music.SongAdded},
+		Song: &s, SongRequest: &sr, Type: music.SongAdded},
 	)
 }

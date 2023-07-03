@@ -31,10 +31,10 @@ const (
 )
 
 type SongQueueEvent struct {
-	Song        *models.Song
-	SongRequest *models.SongRequest
-	Type        SongQueueEventType
-	GuildID     string
+	Song        *models.Song        `json:"song"`
+	SongRequest *models.SongRequest `json:"song_request"`
+	Type        SongQueueEventType  `json:"type"`
+	GuildID     string              `json:"guild_id"`
 }
 
 func StreamSong(ctx context.Context, link string, log zerolog.Logger, vc *discordgo.VoiceConnection, volume float32) {

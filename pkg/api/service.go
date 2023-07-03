@@ -3,10 +3,8 @@ package api
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	connect_go "github.com/bufbuild/connect-go"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/volatiletech/sqlboiler/v4/queries/qm"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -77,10 +75,10 @@ func (inst *Instance) GetCurrentSongPlaying(ctx context.Context, request *connec
 	guild, exists := inst.ShardInstance.ServerInstances[request.Msg.GetGuildId()]
 	inst.ShardInstance.RUnlock()
 	if !exists {
-		return nil, connect_go.NewError(connect_go.CodeNotFound, nil)
+		return connect_go.NewResponse(&thalassav1.GetCurrentSongPlayingResponse{}), nil
 	}
 	if !guild.MusicData.SongPlaying {
-		return nil, connect_go.NewError(connect_go.CodeNotFound, nil)
+		return connect_go.NewResponse(&thalassav1.GetCurrentSongPlayingResponse{}), nil
 	}
 	songRequestProto := songRequestModelToProto(guild.MusicData.CurrentSongRequest)
 	songRequestProto.Song = songModelToProto(guild.MusicData.CurrentSong)
@@ -92,43 +90,4 @@ func (inst *Instance) GetCurrentSongPlaying(ctx context.Context, request *connec
 		SongRequest: songRequestProto,
 	}
 	return connect_go.NewResponse(response), nil
-}
-
-func (inst *Instance) SongRequestsUpdateStream(ctx context.Context,
-	request *connect_go.Request[thalassav1.SongRequestsUpdateStreamRequest],
-	response *connect_go.ServerStream[thalassav1.SongRequestsUpdateStreamResponse],
-) error {
-	guildID := request.Msg.GetGuildId()
-	inst.Lock()
-	_, exists := inst.songQueueUpdateStreams[guildID]
-	if !exists {
-		inst.ShardInstance.RLock()
-		_, gExists := inst.ShardInstance.ServerInstances[guildID]
-		inst.ShardInstance.RUnlock()
-		if !gExists {
-			log.Error().Msgf("Error getting song request update stream for guild %s", guildID)
-			inst.Unlock()
-			return connect_go.NewError(connect_go.CodeNotFound, nil)
-		}
-		inst.songQueueUpdateStreams[guildID] = make(map[string]*songRequestUpdateStream)
-	}
-	// Create UUID to track stream
-	streamID := uuid.New().String()
-	inst.songQueueUpdateStreams[guildID][streamID] = &songRequestUpdateStream{
-		ServerStream: response,
-		Ctx:          ctx,
-		Mutex:        &sync.Mutex{},
-	}
-	inst.Unlock()
-	select {
-	case <-ctx.Done():
-		break
-	case <-inst.ShardInstance.Ctx.Done():
-		break
-	}
-	// Remove stream from map
-	inst.Lock()
-	delete(inst.songQueueUpdateStreams[guildID], streamID)
-	inst.Unlock()
-	return nil
 }

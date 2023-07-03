@@ -2,14 +2,16 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
-	connect_go "github.com/bufbuild/connect-go"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+	"github.com/olahol/melody"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -21,17 +23,11 @@ import (
 )
 
 type Instance struct {
-	ShardInstance          *discord.ShardInstance
-	songQueueUpdateStreams map[string]map[string]*songRequestUpdateStream
-	Host                   string
-	Port                   string
+	ShardInstance *discord.ShardInstance
+	Host          string
+	Port          string
+	mSockets      *melody.Melody
 	*sync.RWMutex
-}
-
-type songRequestUpdateStream struct {
-	*connect_go.ServerStream[thalassav1.SongRequestsUpdateStreamResponse]
-	Ctx context.Context
-	*sync.Mutex
 }
 
 func songRequestModelToProto(songRequestModel *models.SongRequest) *thalassav1.SongRequest {
@@ -63,63 +59,51 @@ func songModelToProto(songModel *models.Song) *thalassav1.Song {
 	}
 }
 
-func songRequestUpdateEventToProto(event music.SongQueueEvent) *thalassav1.SongRequestsUpdateEvent {
-	protoEvent := &thalassav1.SongRequestsUpdateEvent{}
-	switch event.Type {
-	case music.SongAdded:
-		protoEvent.EventType = thalassav1.SongRequestsUpdateEvent_SONG_REQUEST_ADDED
-	case music.SongPlaying:
-		protoEvent.EventType = thalassav1.SongRequestsUpdateEvent_SONG_REQUEST_PLAYING
-	case music.SongFinished:
-		protoEvent.EventType = thalassav1.SongRequestsUpdateEvent_SONG_REQUEST_FINISHED
-	case music.SongSkipped:
-		protoEvent.EventType = thalassav1.SongRequestsUpdateEvent_SONG_REQUEST_SKIPPED
-	case music.SongSkippedAll:
-		protoEvent.EventType = thalassav1.SongRequestsUpdateEvent_SONG_REQUEST_SKIPPED_ALL
-	}
-	protoEvent.SongRequest = songRequestModelToProto(event.SongRequest)
-	return protoEvent
-}
-
 func New(shardInstance *discord.ShardInstance, host, port string) *Instance {
-	queueEventMap := make(map[string]map[string]*songRequestUpdateStream)
 	return &Instance{
-		ShardInstance:          shardInstance,
-		songQueueUpdateStreams: queueEventMap,
-		Host:                   host,
-		Port:                   port,
-		RWMutex:                &sync.RWMutex{},
+		ShardInstance: shardInstance,
+		Host:          host,
+		Port:          port,
+		RWMutex:       &sync.RWMutex{},
 	}
 }
 
 func (inst *Instance) SongQueueEventUpdate(guildID string, event music.SongQueueEvent) {
 	go func() {
-		inst.Lock()
-		defer inst.Unlock()
-		_, exists := inst.songQueueUpdateStreams[guildID]
-		if !exists {
-			inst.songQueueUpdateStreams[guildID] = make(map[string]*songRequestUpdateStream)
+		eventBytes, errMarshal := json.Marshal(&event)
+		if errMarshal != nil {
+			log.Error().Err(errMarshal).Msg("Error marshalling song request event.")
+			return
 		}
-		for _, stream := range inst.songQueueUpdateStreams[guildID] {
-			stream.Lock()
-			if stream == nil {
-				log.Error().Msgf("Nil song request update stream for guild %s", guildID)
-				stream.Unlock()
-				continue
-			}
-			if stream.Ctx.Err() != nil {
-				stream.Unlock()
-				continue
-			}
-			errSend := stream.Send(&thalassav1.SongRequestsUpdateStreamResponse{
-				Event: songRequestUpdateEventToProto(event),
-			})
-			if errSend != nil {
-				log.Error().Err(errSend).Msgf("Error sending song request update stream for guild %s", guildID)
-			}
-			stream.Unlock()
+		errBroadcast := inst.mSockets.BroadcastFilter(eventBytes, func(session *melody.Session) bool {
+			return session.Request.URL.Path == "/ws/"+guildID+"/song_request_events"
+		})
+		if errBroadcast != nil {
+			log.Error().Err(errBroadcast).Msg("Error broadcasting song request event.")
 		}
 	}()
+}
+
+func (inst *Instance) handleWebsocketRequest(w http.ResponseWriter, r *http.Request) {
+	urlSplit := strings.Split(r.URL.Path, "/")
+	if len(urlSplit) != 4 {
+		log.Error().Msg("Invalid websocket URL.")
+		http.Error(w, "Invalid websocket URL.", http.StatusBadRequest)
+		return
+	}
+	guildID := urlSplit[2]
+	inst.ShardInstance.RLock()
+	_, exists := inst.ShardInstance.ServerInstances[guildID]
+	inst.ShardInstance.RUnlock()
+	if !exists {
+		log.Error().Str("guild_id", guildID).Msg("Guild not found.")
+		http.Error(w, "Guild does not exist.", http.StatusNotFound)
+		return
+	}
+	err := inst.mSockets.HandleRequest(w, r)
+	if err != nil {
+		log.Error().Err(err).Msg("Error handling websocket request.")
+	}
 }
 
 func (inst *Instance) Start(ctx context.Context) {
@@ -128,8 +112,11 @@ func (inst *Instance) Start(ctx context.Context) {
 	apiPath, apiHandler := thalassav1connect.NewAPIServiceHandler(inst)
 	log.Debug().Msgf("API path: %s", apiPath)
 
+	inst.mSockets = melody.New()
+
 	router.Use(cors.AllowAll().Handler)
 	router.Mount(apiPath, apiHandler)
+	router.HandleFunc("/ws/{guild_id}/song_request_events", inst.handleWebsocketRequest)
 
 	httpServer := http.Server{
 		Addr:              net.JoinHostPort(inst.Host, inst.Port),
